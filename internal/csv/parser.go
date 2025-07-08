@@ -4,7 +4,8 @@ import (
 	"encoding/csv"
 	"fmt"
 	"io"
-	"strconv"
+	"runtime"
+	"sync"
 
 	"hackathon-go/internal/models"
 )
@@ -17,46 +18,60 @@ func ParseProducts(file io.Reader) ([]models.Product, error) {
 		return nil, fmt.Errorf("failed to read csv header: %w", err)
 	}
 
+	jobs := make(chan job, 100)
+	results := make(chan result, 100)
+
+	numWorkers := runtime.NumCPU()
+	var wg sync.WaitGroup
+
+	for i := 0; i < numWorkers; i++ {
+		wg.Add(1)
+		go worker(&wg, jobs, results)
+	}
+
+	var readErr error
+	var readWg sync.WaitGroup
+	readWg.Add(1)
+	go func() {
+		defer close(jobs)
+		defer readWg.Done()
+		line := 1
+		for {
+			line++
+			record, err := reader.Read()
+			if err == io.EOF {
+				break
+			}
+			if err != nil {
+				readErr = fmt.Errorf("failed to read csv record at line %d: %w", line, err)
+				return
+			}
+			jobs <- job{record: record, line: line}
+		}
+	}()
+
+	go func() {
+		wg.Wait()
+		close(results)
+	}()
+
 	var products []models.Product
-	line := 1
-	for {
-		line++
-		record, err := reader.Read()
-		if err == io.EOF {
-			break
+	for res := range results {
+		if res.err != nil {
+			// Drain the jobs channel to allow the reader goroutine to finish
+			go func() {
+				for range jobs {
+				}
+			}()
+			readWg.Wait()
+			return nil, res.err
 		}
-		if err != nil {
-			return nil, fmt.Errorf("failed to read csv record at line %d: %w", line, err)
-		}
+		products = append(products, res.product)
+	}
 
-		if len(record) < 6 {
-			return nil, fmt.Errorf("invalid record at line %d: expected 6 fields, got %d", line, len(record))
-		}
-
-		id, err := strconv.Atoi(record[0])
-		if err != nil {
-			return nil, fmt.Errorf("invalid id at line %d: %w", line, err)
-		}
-
-		preco, err := strconv.ParseFloat(record[3], 64)
-		if err != nil {
-			return nil, fmt.Errorf("invalid preco at line %d: %w", line, err)
-		}
-
-		estoque, err := strconv.Atoi(record[4])
-		if err != nil {
-			return nil, fmt.Errorf("invalid estoque at line %d: %w", line, err)
-		}
-
-		product := models.Product{
-			ID:         id,
-			Nome:       record[1],
-			Categoria:  record[2],
-			Preco:      preco,
-			Estoque:    estoque,
-			Fornecedor: record[5],
-		}
-		products = append(products, product)
+	readWg.Wait()
+	if readErr != nil {
+		return nil, readErr
 	}
 
 	return products, nil
