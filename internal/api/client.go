@@ -16,6 +16,7 @@ const (
 )
 
 // FetchProducts retrieves the product list from the external API, handling pagination concurrently.
+// FetchProducts retrieves the product list from the external API, handling pagination concurrently.
 func FetchProducts() ([]models.Product, error) {
 	fmt.Println("[DEBUG] Starting FetchProducts...")
 

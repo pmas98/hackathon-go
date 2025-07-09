@@ -1,13 +1,13 @@
 package handler
 
 import (
-	"net/http"
-	"time"
 	"fmt"
 	"hackathon-go/internal/api"
 	"hackathon-go/internal/comparison"
 	"hackathon-go/internal/csv"
 	"hackathon-go/internal/storage"
+	"net/http"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"

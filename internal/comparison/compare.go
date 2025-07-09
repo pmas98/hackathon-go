@@ -101,20 +101,24 @@ func CompareProducts(apiProducts, csvProducts []models.Product) models.Compariso
 func compareFields(api, csv models.Product) map[string]models.MismatchDetail {
 	fields := make(map[string]models.MismatchDetail)
 
-	if api.Nome != csv.Nome {
-		fields["nome"] = models.MismatchDetail{APIValue: api.Nome, CSVValue: csv.Nome}
+	fieldComparisons := map[string]struct {
+		apiValue interface{}
+		csvValue interface{}
+	}{
+		"nome":       {apiValue: api.Nome, csvValue: csv.Nome},
+		"categoria":  {apiValue: api.Categoria, csvValue: csv.Categoria},
+		"preco":      {apiValue: api.Preco, csvValue: csv.Preco},
+		"estoque":    {apiValue: api.Estoque, csvValue: csv.Estoque},
+		"fornecedor": {apiValue: api.Fornecedor, csvValue: csv.Fornecedor},
 	}
-	if api.Categoria != csv.Categoria {
-		fields["categoria"] = models.MismatchDetail{APIValue: api.Categoria, CSVValue: csv.Categoria}
-	}
-	if api.Preco != csv.Preco {
-		fields["preco"] = models.MismatchDetail{APIValue: api.Preco, CSVValue: csv.Preco}
-	}
-	if api.Estoque != csv.Estoque {
-		fields["estoque"] = models.MismatchDetail{APIValue: api.Estoque, CSVValue: csv.Estoque}
-	}
-	if api.Fornecedor != csv.Fornecedor {
-		fields["fornecedor"] = models.MismatchDetail{APIValue: api.Fornecedor, CSVValue: csv.Fornecedor}
+
+	for fieldName, values := range fieldComparisons {
+		if values.apiValue != values.csvValue {
+			fields[fieldName] = models.MismatchDetail{
+				APIValue: values.apiValue,
+				CSVValue: values.csvValue,
+			}
+		}
 	}
 
 	return fields
