@@ -10,9 +10,20 @@ type Product struct {
 	Fornecedor string  `json:"fornecedor"`
 }
 
+// Pagination defines the structure for pagination info from the API.
+type Pagination struct {
+	CurrentPage     int  `json:"current_page"`
+	ItemsPerPage    int  `json:"items_per_page"`
+	TotalItems      int  `json:"total_items"`
+	TotalPages      int  `json:"total_pages"`
+	HasNextPage     bool `json:"has_next_page"`
+	HasPreviousPage bool `json:"has_previous_page"`
+}
+
 // APIResponse is the structure of the top-level response from the product API.
 type APIResponse struct {
-	Data []Product `json:"data"`
+	Data       []Product   `json:"data"`
+	Pagination *Pagination `json:"pagination,omitempty"`
 }
 
 // Summary holds a summary of the comparison between API and CSV data.

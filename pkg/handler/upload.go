@@ -3,7 +3,7 @@ package handler
 import (
 	"net/http"
 	"time"
-
+	"fmt"
 	"hackathon-go/internal/api"
 	"hackathon-go/internal/comparison"
 	"hackathon-go/internal/csv"
@@ -46,12 +46,13 @@ func (h *UploadHandler) HandleUpload(c *gin.Context) {
 	go func() {
 		apiProducts, err := api.FetchProducts()
 		if err != nil {
-			// In a real-world scenario, you'd have a better way to handle this error,
-			// maybe by updating the job status in Redis to "failed".
+			fmt.Println("Error fetching products from API:", err)
 			return
 		}
 
 		result := comparison.CompareProducts(apiProducts, csvProducts)
 		h.Redis.SaveResult(jobID, &result, time.Hour*24)
+		fmt.Println("Comparison done")
+
 	}()
 }

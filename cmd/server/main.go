@@ -22,13 +22,11 @@ func main() {
 
 	uploadHandler := &handler.UploadHandler{Redis: redisClient}
 	resultsHandler := &handler.ResultsHandler{Redis: redisClient}
-	exportHandler := &handler.ExportHandler{Redis: redisClient}
 	jobsHandler := &handler.JobsHandler{Redis: redisClient}
 
 	router := gin.Default()
 	router.POST("/upload", uploadHandler.HandleUpload)
 	router.GET("/results/:job_id", resultsHandler.HandleGetResult)
-	router.GET("/export/:job_id", exportHandler.HandleExport)
 	router.GET("/jobs", jobsHandler.HandleGetJobs)
 
 	if err := router.Run(":8080"); err != nil {

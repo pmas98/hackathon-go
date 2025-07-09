@@ -2,10 +2,19 @@ package csv
 
 import (
 	"fmt"
+	"hackathon-go/internal/models"
 	"strconv"
 	"sync"
+)
 
-	"hackathon-go/internal/models"
+const (
+	colID = iota
+	colNome
+	colCategoria
+	colPreco
+	colEstoque
+	colFornecedor
+	totalCols
 )
 
 type job struct {
@@ -27,32 +36,32 @@ func worker(wg *sync.WaitGroup, jobs <-chan job, results chan<- result) {
 }
 
 func parseRecord(record []string, line int) (models.Product, error) {
-	if len(record) < 6 {
-		return models.Product{}, fmt.Errorf("invalid record at line %d: expected 6 fields, got %d", line, len(record))
+	if len(record) < totalCols {
+		return models.Product{}, fmt.Errorf("invalid record at line %d: expected %d fields, got %d", line, totalCols, len(record))
 	}
 
-	id, err := strconv.Atoi(record[0])
+	id, err := strconv.Atoi(record[colID])
 	if err != nil {
 		return models.Product{}, fmt.Errorf("invalid id at line %d: %w", line, err)
 	}
 
-	preco, err := strconv.ParseFloat(record[3], 64)
+	preco, err := strconv.ParseFloat(record[colPreco], 64)
 	if err != nil {
 		return models.Product{}, fmt.Errorf("invalid preco at line %d: %w", line, err)
 	}
 
-	estoque, err := strconv.Atoi(record[4])
+	estoque, err := strconv.Atoi(record[colEstoque])
 	if err != nil {
 		return models.Product{}, fmt.Errorf("invalid estoque at line %d: %w", line, err)
 	}
 
 	product := models.Product{
 		ID:         id,
-		Nome:       record[1],
-		Categoria:  record[2],
+		Nome:       record[colNome],
+		Categoria:  record[colCategoria],
 		Preco:      preco,
 		Estoque:    estoque,
-		Fornecedor: record[5],
+		Fornecedor: record[colFornecedor],
 	}
 	return product, nil
 }
