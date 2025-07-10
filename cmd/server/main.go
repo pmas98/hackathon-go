@@ -23,11 +23,13 @@ func main() {
 	uploadHandler := &handler.UploadHandler{Redis: redisClient}
 	resultsHandler := &handler.ResultsHandler{Redis: redisClient}
 	jobsHandler := &handler.JobsHandler{Redis: redisClient}
+	wsHandler := &handler.WebSocketHandler{}
 
 	router := gin.Default()
 	router.POST("/upload", uploadHandler.HandleUpload)
 	router.GET("/results/:job_id", resultsHandler.HandleGetResult)
 	router.GET("/jobs", jobsHandler.HandleGetJobs)
+	router.GET("/ws/:job_id", wsHandler.HandleWebSocket)
 
 	if err := router.Run(":8080"); err != nil {
 		log.Fatalf("failed to run server: %v", err)
