@@ -40,11 +40,35 @@ The application will be available at `http://localhost:8080`.
     -   **URL parameter:** `job_id`
     -   **Returns:** A JSON object with the processing results.
 
--   `GET /export/:job_id`
-    -   Exports the results of a processed job as a CSV file.
-    -   **URL parameter:** `job_id`
-    -   **Returns:** A CSV file. 
-    
 -   `GET /jobs`
     -   Retrieves all job IDs.
     -   **Returns:** A JSON object with a list of `job_ids`. 
+
+-   `GET /ws/:job_id`
+    -   Establishes a WebSocket connection to stream **live progress updates** for a given job.
+    -   **URL parameter:** `job_id`
+    -   **Messages Format:**
+        -   Status updates
+            ```json
+            { "type": "status", "status": "parsing_csv" }
+            ```
+            Possible `status` values include `job_created`, `parsing_csv`, `csv_parsed`, `fetching_api_products`, `api_products_fetched`, `comparing_products`, `comparison_done`, `saved_results`, `finished`, `error_parsing_csv`, and `error_fetching_api_products`.
+        -   Progress updates
+            ```json
+            { "type": "progress", "progress": 0.42 }
+            ```
+            The `progress` field is a float between 0 and `1`, representing the proportion of API pages fetched.
+
+    -   **Example JavaScript client:**
+        ```js
+        const socket = new WebSocket("ws://localhost:8080/ws/" + jobId);
+
+        socket.onmessage = (event) => {
+          const data = JSON.parse(event.data);
+          if (data.type === "status") {
+            console.log("Status:", data.status);
+          } else if (data.type === "progress") {
+            console.log(`Progress: ${data.progress * 100}%`);
+          }
+        };
+        ``` 
