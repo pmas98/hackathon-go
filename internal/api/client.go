@@ -47,8 +47,9 @@ func FetchProducts(jobID string) ([]models.Product, error) {
 
 	fmt.Printf("[DEBUG] First page fetched: %d products\n", len(firstApiResponse.Data))
 
-	// Notify websocket listeners that the first page has been fetched.
-	ws.HubInstance.Send(jobID, fmt.Sprintf("fetched_page_%d", 1))
+	// After first page, send initial progress update as JSON.
+	initialProgress, _ := json.Marshal(map[string]float64{"progress": 0}) // will be updated below to actual value
+	ws.HubInstance.Send(jobID, string(initialProgress))
 
 	allProducts := firstApiResponse.Data
 
@@ -62,7 +63,9 @@ func FetchProducts(jobID string) ([]models.Product, error) {
 
 	// Track pages fetched and send initial progress (first page already fetched).
 	var fetched int32 = 1
-	ws.HubInstance.Send(jobID, fmt.Sprintf("progress_%f", float64(fetched)/float64(totalPages)))
+	progressRatio := float64(fetched) / float64(totalPages)
+	progressJSON, _ := json.Marshal(map[string]float64{"progress": progressRatio})
+	ws.HubInstance.Send(jobID, string(progressJSON))
 
 	if totalPages <= 1 {
 		return allProducts, nil
@@ -112,7 +115,9 @@ func FetchProducts(jobID string) ([]models.Product, error) {
 
 			// Increment fetched counter and send progress update.
 			newVal := atomic.AddInt32(&fetched, 1)
-			ws.HubInstance.Send(jobID, fmt.Sprintf("progress_%f", float64(newVal)/float64(totalPages)))
+			ratio := float64(newVal) / float64(totalPages)
+			progressMsg, _ := json.Marshal(map[string]float64{"progress": ratio})
+			ws.HubInstance.Send(jobID, string(progressMsg))
 			productsChan <- pageApiResponse.Data
 		}(page)
 	}
@@ -135,6 +140,7 @@ func FetchProducts(jobID string) ([]models.Product, error) {
 	fmt.Println("[DEBUG] Finished FetchProducts.")
 
 	// Ensure final progress is 100%.
-	ws.HubInstance.Send(jobID, "progress_1.000000")
+	finalMsg, _ := json.Marshal(map[string]float64{"progress": 1})
+	ws.HubInstance.Send(jobID, string(finalMsg))
 	return allProducts, nil
 }

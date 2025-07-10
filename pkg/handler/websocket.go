@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"encoding/json"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -38,7 +39,7 @@ func (h *WebSocketHandler) HandleWebSocket(c *gin.Context) {
 	defer ws.HubInstance.Unregister(jobID, progressCh)
 
 	// Send initial message so client knows the connection is established.
-	_ = conn.WriteJSON(gin.H{"message": "connected", "job_id": jobID})
+	_ = conn.WriteJSON(gin.H{"type": "status", "status": "connected", "job_id": jobID})
 
 	// Listen until the channel is closed or websocket errors.
 	for {
@@ -46,10 +47,23 @@ func (h *WebSocketHandler) HandleWebSocket(c *gin.Context) {
 		case msg, ok := <-progressCh:
 			if !ok {
 				// channel closed – job finished or server shutting down
-				_ = conn.WriteJSON(gin.H{"message": "finished"})
+				_ = conn.WriteJSON(gin.H{"type": "status", "status": "finished"})
 				return
 			}
-			if err := conn.WriteJSON(gin.H{"message": msg}); err != nil {
+
+			// Try to parse the message as JSON to detect progress updates.
+			var progressPayload map[string]float64
+			if err := json.Unmarshal([]byte(msg), &progressPayload); err == nil {
+				if progress, ok := progressPayload["progress"]; ok {
+					if err := conn.WriteJSON(gin.H{"type": "progress", "progress": progress}); err != nil {
+						return
+					}
+					continue
+				}
+			}
+
+			// Fallback: treat as plain status string.
+			if err := conn.WriteJSON(gin.H{"type": "status", "status": msg}); err != nil {
 				return
 			}
 		}
