@@ -6,8 +6,10 @@ import (
 	"io"
 	"net/http"
 	"sync"
+	"sync/atomic"
 
 	"hackathon-go/internal/models"
+	"hackathon-go/internal/ws"
 )
 
 const (
@@ -16,7 +18,8 @@ const (
 )
 
 // FetchProducts retrieves the product list from the external API, handling pagination concurrently.
-func FetchProducts() ([]models.Product, error) {
+// It streams progress updates via the websocket hub using the provided jobID.
+func FetchProducts(jobID string) ([]models.Product, error) {
 	fmt.Println("[DEBUG] Starting FetchProducts...")
 
 	firstPageURL := fmt.Sprintf("%s?page=1&limit=%d", apiURL, limit)
@@ -44,6 +47,9 @@ func FetchProducts() ([]models.Product, error) {
 
 	fmt.Printf("[DEBUG] First page fetched: %d products\n", len(firstApiResponse.Data))
 
+	// Notify websocket listeners that the first page has been fetched.
+	ws.HubInstance.Send(jobID, fmt.Sprintf("fetched_page_%d", 1))
+
 	allProducts := firstApiResponse.Data
 
 	if firstApiResponse.Pagination == nil || !firstApiResponse.Pagination.HasNextPage {
@@ -53,6 +59,10 @@ func FetchProducts() ([]models.Product, error) {
 
 	totalPages := firstApiResponse.Pagination.TotalPages
 	fmt.Printf("[DEBUG] Total pages to fetch: %d\n", totalPages)
+
+	// Track pages fetched and send initial progress (first page already fetched).
+	var fetched int32 = 1
+	ws.HubInstance.Send(jobID, fmt.Sprintf("progress_%f", float64(fetched)/float64(totalPages)))
 
 	if totalPages <= 1 {
 		return allProducts, nil
@@ -99,6 +109,10 @@ func FetchProducts() ([]models.Product, error) {
 			}
 
 			fmt.Printf("[DEBUG] Page %d fetched: %d products\n", p, len(pageApiResponse.Data))
+
+			// Increment fetched counter and send progress update.
+			newVal := atomic.AddInt32(&fetched, 1)
+			ws.HubInstance.Send(jobID, fmt.Sprintf("progress_%f", float64(newVal)/float64(totalPages)))
 			productsChan <- pageApiResponse.Data
 		}(page)
 	}
@@ -119,5 +133,8 @@ func FetchProducts() ([]models.Product, error) {
 
 	fmt.Printf("[DEBUG] Total products fetched: %d\n", len(allProducts))
 	fmt.Println("[DEBUG] Finished FetchProducts.")
+
+	// Ensure final progress is 100%.
+	ws.HubInstance.Send(jobID, "progress_1.000000")
 	return allProducts, nil
 }

@@ -54,7 +54,7 @@ func (h *UploadHandler) HandleUpload(c *gin.Context) {
 	go func() {
 		// Step 1: Fetch API products
 		ws.HubInstance.Send(jobID, "fetching_api_products")
-		apiProducts, err := api.FetchProducts()
+		apiProducts, err := api.FetchProducts(jobID)
 		if err != nil {
 			ws.HubInstance.Send(jobID, "error_fetching_api_products")
 			fmt.Println("Error fetching products from API:", err)
