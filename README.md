@@ -17,7 +17,7 @@ When a file is uploaded to the `/upload` endpoint, it is processed, and a `job_i
 
 1.  **Clone the repository:**
     ```sh
-    git clone <repository-url>
+    git clone https://github.com/pmas98/hackathon-go
     cd hackathon-go
     ```
 
