@@ -1,7 +1,7 @@
 version: '3.8'
 
 services:
-  app:
+  backend:
     build: .
     ports:
       - "8080:8080"
@@ -9,6 +9,22 @@ services:
       - REDIS_ADDR=redis:6379
     depends_on:
       - redis
+
+  frontend:
+    build: 
+      context: ./frontend
+      dockerfile: Dockerfile.dev
+    ports:
+      - "3000:3000"
+    environment:
+      - VITE_API_URL=http://localhost:8080
+    depends_on:
+      - backend
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    stdin_open: true
+    tty: true
 
   redis:
     image: redis:alpine
