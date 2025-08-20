@@ -66,18 +66,32 @@ export function DivergenceChart({ data }: DivergenceChartProps) {
               </Pie>
               <Tooltip 
                 contentStyle={{
-                  backgroundColor: 'rgba(15, 23, 42, 0.9)',
-                  border: '1px solid rgba(255, 255, 255, 0.1)',
-                  borderRadius: '12px',
-                  color: 'white',
-                  fontSize: '14px'
+                  backgroundColor: 'rgba(255, 255, 255, 0.95)',
+                  border: '2px solid rgba(139, 92, 246, 0.8)',
+                  borderRadius: '16px',
+                  color: '#1f2937',
+                  fontSize: '14px',
+                  fontWeight: '600',
+                  boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.3), 0 10px 10px -5px rgba(0, 0, 0, 0.2)',
+                  padding: '12px 16px'
+                }}
+                labelStyle={{
+                  color: '#8b5cf6',
+                  fontWeight: '700',
+                  fontSize: '16px'
                 }}
               />
               <Legend 
                 wrapperStyle={{
                   color: 'white',
-                  fontSize: '14px'
+                  fontSize: '16px',
+                  fontWeight: '600'
                 }}
+                formatter={(value) => (
+                  <span style={{ color: 'white', fontWeight: '600' }}>
+                    {value}
+                  </span>
+                )}
               />
             </PieChart>
           </ResponsiveContainer>
@@ -109,18 +123,32 @@ export function DivergenceChart({ data }: DivergenceChartProps) {
               </Pie>
               <Tooltip 
                 contentStyle={{
-                  backgroundColor: 'rgba(15, 23, 42, 0.9)',
-                  border: '1px solid rgba(255, 255, 255, 0.1)',
-                  borderRadius: '12px',
-                  color: 'white',
-                  fontSize: '14px'
+                  backgroundColor: 'rgba(255, 255, 255, 0.95)',
+                  border: '2px solid rgba(139, 92, 246, 0.8)',
+                  borderRadius: '16px',
+                  color: '#1f2937',
+                  fontSize: '14px',
+                  fontWeight: '600',
+                  boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.3), 0 10px 10px -5px rgba(0, 0, 0, 0.2)',
+                  padding: '12px 16px'
+                }}
+                labelStyle={{
+                  color: '#8b5cf6',
+                  fontWeight: '700',
+                  fontSize: '16px'
                 }}
               />
               <Legend 
                 wrapperStyle={{
                   color: 'white',
-                  fontSize: '14px'
+                  fontSize: '16px',
+                  fontWeight: '600'
                 }}
+                formatter={(value) => (
+                  <span style={{ color: 'white', fontWeight: '600' }}>
+                    {value}
+                  </span>
+                )}
               />
             </PieChart>
           </ResponsiveContainer>
