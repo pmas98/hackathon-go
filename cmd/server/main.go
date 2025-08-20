@@ -42,6 +42,7 @@ func main() {
 	
 	router.POST("/upload", uploadHandler.HandleUpload)
 	router.GET("/results/:job_id", resultsHandler.HandleGetResult)
+	router.GET("/results/:job_id/export", resultsHandler.HandleExportResult)
 	router.GET("/jobs", jobsHandler.HandleGetJobs)
 	router.GET("/ws/:job_id", wsHandler.HandleWebSocket)
 

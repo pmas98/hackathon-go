@@ -19,6 +19,14 @@ func CompareProducts(apiProducts, csvProducts []models.Product) models.Compariso
 
 	var result models.ComparisonResult
 	result.Errors = []models.ErrorDetail{}
+	
+	// Initialize the Categories map
+	result.Summary.Categories = make(map[string]int)
+	result.Summary.Categories["nome"] = 0
+	result.Summary.Categories["categoria"] = 0
+	result.Summary.Categories["preco"] = 0
+	result.Summary.Categories["estoque"] = 0
+	result.Summary.Categories["fornecedor"] = 0
 
 	errorChan := make(chan models.ErrorDetail, len(csvMap)+len(apiProducts))
 	matchedChan := make(chan bool, len(csvProducts))
@@ -81,6 +89,10 @@ func CompareProducts(apiProducts, csvProducts []models.Product) models.Compariso
 		switch errDetail.Type {
 		case "mismatch":
 			result.Summary.Mismatched++
+			// Count mismatches by category
+			for fieldName := range errDetail.Fields {
+				result.Summary.Categories[fieldName]++
+			}
 		case "missing_in_api":
 			result.Summary.MissingInAPI++
 		case "missing_in_csv":

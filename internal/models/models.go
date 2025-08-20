@@ -28,12 +28,13 @@ type APIResponse struct {
 
 // Summary holds a summary of the comparison between API and CSV data.
 type Summary struct {
-	TotalAPIItems int `json:"total_api_items"`
-	TotalCSVItems int `json:"total_csv_items"`
-	Matched       int `json:"matched"`
-	Mismatched    int `json:"mismatched"`
-	MissingInCSV  int `json:"missing_in_csv"`
-	MissingInAPI  int `json:"missing_in_api"`
+	TotalAPIItems int                    `json:"total_api_items"`
+	TotalCSVItems int                    `json:"total_csv_items"`
+	Matched       int                    `json:"matched"`
+	Mismatched    int                    `json:"mismatched"`
+	MissingInCSV  int                    `json:"missing_in_csv"`
+	MissingInAPI  int                    `json:"missing_in_api"`
+	Categories    map[string]int         `json:"categories"`
 }
 
 // MismatchDetail stores the differing values for a field.
