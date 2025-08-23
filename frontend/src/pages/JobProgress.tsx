@@ -1,4 +1,3 @@
-import { useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { ArrowLeft, CheckCircle, Circle, AlertCircle, Wifi, WifiOff, Play, Clock } from 'lucide-react';
 import { Header } from '@/components/Header';
@@ -12,17 +11,25 @@ export default function JobProgress() {
   
   const { jobState, reconnect } = useJobSocket(jobId!);
 
-  // Redirecionar para resultados quando finalizar
-  useEffect(() => {
-    if (jobState.status === 'Processamento finalizado') {
-      setTimeout(() => {
-        navigate(`/results/${jobId}`);
-      }, 2000);
-    }
-  }, [jobState.status, jobId, navigate]);
-
   const isFinished = jobState.status === 'Processamento finalizado';
   const hasError = jobState.status.includes('Erro');
+  const isLoading = jobState.status === 'Carregando status...';
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-pink-900 relative overflow-hidden">
+        <Header />
+        <main className="relative z-10 container mx-auto py-16 px-4">
+          <div className="flex items-center justify-center min-h-[400px]">
+            <div className="flex flex-col items-center space-y-6">
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-400"></div>
+              <p className="text-purple-200 text-lg">Carregando status do job...</p>
+            </div>
+          </div>
+        </main>
+      </div>
+    );
+  }
 
   const steps = [
     { key: 'job_created', label: 'Job criado', icon: Play },
@@ -128,7 +135,7 @@ export default function JobProgress() {
                 <div>
                   <h3 className="font-semibold text-white">Processamento Concluído!</h3>
                   <p className="text-green-300 mt-1">
-                    Redirecionando para os resultados...
+                    O job foi processado com sucesso. Use o botão abaixo para ver os resultados.
                   </p>
                 </div>
               </div>
@@ -142,9 +149,10 @@ export default function JobProgress() {
             <div className="space-y-4">
               {steps.map((step, index) => {
                 const Icon = step.icon;
-                const isCompleted = jobState.status === step.label || 
+                const isCompleted = isFinished || 
+                  jobState.status === step.label || 
                   (index > 0 && jobState.progress > (index / 8));
-                const isCurrent = jobState.status === step.label;
+                const isCurrent = !isFinished && jobState.status === step.label;
                 
                 return (
                   <div key={step.key} className="flex items-center space-x-4 p-4 rounded-xl transition-colors hover:bg-white/5">

@@ -52,12 +52,12 @@ export function ProgressCard({
         <div className="space-y-3">
           <div className="flex justify-between text-sm">
             <span className="font-medium text-purple-200">Progresso</span>
-            <span className="font-semibold text-purple-400">{Math.round(progress * 100)}%</span>
+            <span className="font-semibold text-purple-400">{Math.round(progress)}%</span>
           </div>
           <div className="w-full bg-white/10 rounded-full h-3 overflow-hidden">
             <div 
               className="bg-gradient-to-r from-purple-400 to-pink-400 h-3 rounded-full transition-all duration-700 ease-out shadow-lg"
-              style={{ width: `${progress * 100}%` }}
+              style={{ width: `${progress}%` }}
             />
           </div>
         </div>
@@ -65,11 +65,17 @@ export function ProgressCard({
         {/* Status */}
         <div className="flex items-center space-x-3 p-4 bg-white/5 rounded-xl border border-white/10">
           <div className="flex items-center justify-center w-8 h-8 bg-purple-500/20 rounded-full">
-            <Circle className="h-4 w-4 text-purple-400" />
+            {status === 'Processamento finalizado' ? (
+              <CheckCircle className="h-4 w-4 text-green-400" />
+            ) : (
+              <Circle className="h-4 w-4 text-purple-400" />
+            )}
           </div>
           <div>
             <p className="font-medium text-white">{status}</p>
-            <p className="text-sm text-purple-200">Status atual</p>
+            <p className="text-sm text-purple-200">
+              {status === 'Processamento finalizado' ? 'Job concluído com sucesso' : 'Status atual'}
+            </p>
           </div>
         </div>
         

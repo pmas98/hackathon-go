@@ -1,13 +1,12 @@
 import { useState, useEffect } from 'react';
-import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import { ArrowLeft, Download, BarChart3, Clock, TrendingUp, FileText, Share2 } from 'lucide-react';
 import { Header } from '@/components/Header';
-import { FiltersBar } from '@/components/FiltersBar';
 import { DivergencesTable } from '@/components/DivergencesTable';
 import { DivergenceChart } from '@/components/DivergenceChart';
 import { api, exportData } from '@/lib/api';
 import { formatNumber, formatTime, copyToClipboard } from '@/lib/utils';
-import type { ComparisonResult, Filters, PerformanceMetrics } from '@/lib/types';
+import type { ComparisonResult, PerformanceMetrics } from '@/lib/types';
 
 interface PaginationInfo {
 	current_page: number;
@@ -21,12 +20,10 @@ interface PaginationInfo {
 export default function Results() {
 	const { jobId } = useParams<{ jobId: string }>();
 	const navigate = useNavigate();
-	const [searchParams, setSearchParams] = useSearchParams();
 	
 	const [results, setResults] = useState<ComparisonResult | null>(null);
 	const [isLoading, setIsLoading] = useState(true);
 	const [error, setError] = useState<string | null>(null);
-	const [filters, setFilters] = useState<Filters>({});
 	const [metrics, setMetrics] = useState<PerformanceMetrics>({
 		validationTime: 0,
 		totalProcessTime: 0
@@ -34,19 +31,6 @@ export default function Results() {
 	const [currentPage, setCurrentPage] = useState(1);
 	const [pageSize, setPageSize] = useState(100);
 	const [pagination, setPagination] = useState<PaginationInfo | null>(null);
-
-	// Load filters from URL
-	useEffect(() => {
-		const urlFilters: Filters = {};
-		searchParams.forEach((value, key) => {
-			if (key === 'precoMin' || key === 'precoMax' || key === 'estoqueMin' || key === 'estoqueMax') {
-				urlFilters[key] = Number(value);
-			} else if (value) {
-				(urlFilters as Record<string, string | number>)[key] = value;
-			}
-		});
-		setFilters(urlFilters);
-	}, [searchParams]);
 
 	// Load results with pagination
 	useEffect(() => {
@@ -77,27 +61,6 @@ export default function Results() {
 
 		loadResults();
 	}, [jobId, currentPage, pageSize]);
-
-	// Update URL when filters change
-	useEffect(() => {
-		const params = new URLSearchParams();
-		Object.entries(filters).forEach(([key, value]) => {
-			if (value !== undefined && value !== null && value !== '') {
-				params.set(key, String(value));
-			}
-		});
-		setSearchParams(params);
-	}, [filters, setSearchParams]);
-
-	const handleFiltersChange = (newFilters: Filters) => {
-		setFilters(newFilters);
-		setCurrentPage(1); // Reset to first page when filters change
-	};
-
-	const handleResetFilters = () => {
-		setFilters({});
-		setCurrentPage(1);
-	};
 
 	const handleExport = async (format: 'csv' | 'json') => {
 		if (!jobId) return;
@@ -271,58 +234,65 @@ export default function Results() {
 						</div>
 					</div>
 
-					{/* Detailed Summary */}
-					<div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-						<div className="p-8 bg-white/5 backdrop-blur-sm rounded-3xl border border-white/10 shadow-2xl">
-							<h3 className="text-xl font-bold text-white mb-6">Resumo da Comparação</h3>
+					{/* Detailed Summary - Single Card */}
+					<div className="p-8 bg-white/5 backdrop-blur-sm rounded-3xl border border-white/10 shadow-2xl">
+						<h3 className="text-xl font-bold text-white mb-6">Resumo da Comparação</h3>
+						<div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+							{/* Left Column - Basic Stats */}
 							<div className="space-y-4">
-								<div className="flex justify-between items-center py-2 border-b border-white/10">
-									<span className="text-purple-200">Total de produtos na API:</span>
-									<span className="font-semibold text-white">{formatNumber(results.summary.total_api_items)}</span>
-								</div>
-								<div className="flex justify-between items-center py-2 border-b border-white/10">
-									<span className="text-purple-200">Total de produtos no CSV:</span>
-									<span className="font-semibold text-white">{formatNumber(results.summary.total_csv_items)}</span>
-								</div>
-								<div className="flex justify-between items-center py-2 border-b border-white/10">
-									<span className="text-green-400">Produtos corretos:</span>
-									<span className="font-semibold text-green-400">{formatNumber(results.summary.matched)}</span>
-								</div>
-								<div className="flex justify-between items-center py-2 border-b border-white/10">
-									<span className="text-orange-400">Divergências:</span>
-									<span className="font-semibold text-orange-400">{formatNumber(results.summary.mismatched)}</span>
-								</div>
-								<div className="flex justify-between items-center py-2 border-b border-white/10">
-									<span className="text-red-400">Faltando no CSV:</span>
-									<span className="font-semibold text-red-400">{formatNumber(results.summary.missing_in_csv)}</span>
-								</div>
-								<div className="flex justify-between items-center py-2">
-									<span className="text-blue-400">Faltando na API:</span>
-									<span className="font-semibold text-blue-400">{formatNumber(results.summary.missing_in_api)}</span>
+								<h4 className="text-lg font-semibold text-purple-200 mb-4">Estatísticas Gerais</h4>
+								<div className="space-y-3">
+									<div className="flex justify-between items-center py-2 border-b border-white/10">
+										<span className="text-purple-200">Total de produtos na API:</span>
+										<span className="font-semibold text-white">{formatNumber(results.summary.total_api_items)}</span>
+									</div>
+									<div className="flex justify-between items-center py-2 border-b border-white/10">
+										<span className="text-purple-200">Total de produtos no CSV:</span>
+										<span className="font-semibold text-white">{formatNumber(results.summary.total_csv_items)}</span>
+									</div>
+									<div className="flex justify-between items-center py-2 border-b border-white/10">
+										<span className="text-green-400">Produtos corretos:</span>
+										<span className="font-semibold text-green-400">{formatNumber(results.summary.matched)}</span>
+									</div>
+									<div className="flex justify-between items-center py-2">
+										<span className="text-orange-400">Total de divergências:</span>
+										<span className="font-semibold text-orange-400">{formatNumber(results.summary.mismatched + results.summary.missing_in_api + results.summary.missing_in_csv)}</span>
+									</div>
 								</div>
 							</div>
-						</div>
-
-						<div className="p-8 bg-white/5 backdrop-blur-sm rounded-3xl border border-white/10 shadow-2xl">
-							<h3 className="text-xl font-bold text-white mb-6">Divergências por Tipo</h3>
+							
+							{/* Right Column - Divergence Breakdown */}
 							<div className="space-y-4">
-								<div className="flex justify-between items-center py-2 border-b border-white/10">
-									<span className="text-purple-200">Divergências de dados:</span>
-									<span className="font-semibold text-orange-400">
-										{formatNumber(results.errors.filter(e => e.type === 'mismatch').length)}
-									</span>
+								<h4 className="text-lg font-semibold text-purple-200 mb-4">Detalhamento das Divergências</h4>
+								<div className="space-y-3">
+									<div className="flex justify-between items-center py-2 border-b border-white/10">
+										<span className="text-purple-200">Divergências de dados:</span>
+										<span className="font-semibold text-orange-400">
+											{formatNumber(results.errors.filter(e => e.type === 'mismatch').length)}
+										</span>
+									</div>
+									<div className="flex justify-between items-center py-2 border-b border-white/10">
+										<span className="text-purple-200">Faltando na API:</span>
+										<span className="font-semibold text-red-400">
+											{formatNumber(results.errors.filter(e => e.type === 'missing_in_api').length)}
+										</span>
+									</div>
+									<div className="flex justify-between items-center py-2">
+										<span className="text-purple-200">Faltando no CSV:</span>
+										<span className="font-semibold text-blue-400">
+											{formatNumber(results.errors.filter(e => e.type === 'missing_in_csv').length)}
+										</span>
+									</div>
 								</div>
-								<div className="flex justify-between items-center py-2 border-b border-white/10">
-									<span className="text-purple-200">Faltando na API:</span>
-									<span className="font-semibold text-red-400">
-										{formatNumber(results.errors.filter(e => e.type === 'missing_in_api').length)}
-									</span>
-								</div>
-								<div className="flex justify-between items-center py-2">
-									<span className="text-purple-200">Faltando no CSV:</span>
-									<span className="font-semibold text-blue-400">
-										{formatNumber(results.errors.filter(e => e.type === 'missing_in_csv').length)}
-									</span>
+								
+								{/* Success Rate */}
+								<div className="mt-6 p-4 bg-green-500/10 rounded-xl border border-green-500/20">
+									<div className="text-center">
+										<div className="text-2xl font-bold text-green-400">
+											{results.summary.total_csv_items > 0 ? ((results.summary.matched / results.summary.total_csv_items) * 100).toFixed(1) : '0'}%
+										</div>
+										<div className="text-sm text-green-300">Taxa de Sucesso</div>
+									</div>
 								</div>
 							</div>
 						</div>
@@ -331,22 +301,11 @@ export default function Results() {
 					{/* Divergence Chart */}
 					<DivergenceChart data={results} />
 
-					{/* Filters */}
-					<div className="p-8 bg-white/5 backdrop-blur-sm rounded-3xl border border-white/10 shadow-2xl">
-						<h3 className="text-xl font-bold text-white mb-6">Filtros e Busca</h3>
-						<FiltersBar
-							filters={filters}
-							onFiltersChange={handleFiltersChange}
-							onReset={handleResetFilters}
-						/>
-					</div>
-
 					{/* Divergences Table */}
 					<div className="p-8 bg-white/5 backdrop-blur-sm rounded-3xl border border-white/10 shadow-2xl">
 						<h3 className="text-xl font-bold text-white mb-6">Divergências Encontradas</h3>
 						<DivergencesTable
 							errors={results.errors}
-							filters={filters}
 							currentPage={currentPage}
 							pageSize={pageSize}
 							totalPages={pagination?.total_pages || 1}

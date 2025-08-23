@@ -65,6 +65,27 @@ export const api = {
 		return response.json();
 	},
 
+	async getJobStatus(jobId: string): Promise<{
+		job_id: string;
+		status: string;
+		progress: number;
+		has_results: boolean;
+		is_completed: boolean;
+	}> {
+		const response = await fetch(`${API_URL}/jobs/${jobId}/status`);
+
+		if (!response.ok) {
+			const errorData = await response.json().catch(() => ({}));
+			throw new APIError(
+				errorData.error || 'Erro ao buscar status do job',
+				response.status,
+				errorData
+			);
+		}
+
+		return response.json();
+	},
+
 	// Função para testar a conexão com a API
 	async healthCheck(): Promise<boolean> {
 		try {
