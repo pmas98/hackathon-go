@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { createWebSocket } from './api';
+import { api } from './api';
 import type { WebSocketMessage, JobState } from './types';
 import { STATUS_LABELS } from './schema';
 
@@ -13,7 +14,7 @@ interface UseJobSocketReturn {
 export function useJobSocket(jobId: string): UseJobSocketReturn {
   const [jobState, setJobState] = useState<JobState>({
     id: jobId,
-    status: 'Conectando...',
+    status: 'Carregando status...',
     progress: 0,
     isConnected: false
   });
@@ -22,6 +23,43 @@ export function useJobSocket(jobId: string): UseJobSocketReturn {
   const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const reconnectAttemptsRef = useRef(0);
   const maxReconnectAttempts = 5;
+  const hasLoadedInitialStatus = useRef(false);
+
+  // Load initial job status from API
+  const loadInitialStatus = useCallback(async () => {
+    try {
+      const jobStatus = await api.getJobStatus(jobId);
+      
+      setJobState(prev => ({
+        ...prev,
+        status: STATUS_LABELS[jobStatus.status] || jobStatus.status,
+        progress: jobStatus.progress,
+        isConnected: true
+      }));
+
+      // If job is completed, don't connect to WebSocket
+      if (jobStatus.is_completed) {
+        setJobState(prev => ({
+          ...prev,
+          status: 'Processamento finalizado',
+          progress: 100,
+          isConnected: true
+        }));
+        return false; // Don't connect to WebSocket
+      }
+
+      hasLoadedInitialStatus.current = true;
+      return true; // Connect to WebSocket
+    } catch (error) {
+      console.error('Erro ao carregar status inicial do job:', error);
+      setJobState(prev => ({
+        ...prev,
+        status: 'Erro ao carregar status',
+        isConnected: false
+      }));
+      return false; // Don't connect to WebSocket
+    }
+  }, [jobId]);
 
   const connect = useCallback(() => {
     if (wsRef.current?.readyState === WebSocket.OPEN) {
@@ -126,12 +164,19 @@ export function useJobSocket(jobId: string): UseJobSocketReturn {
   }, [connect, disconnect]);
 
   useEffect(() => {
-    connect();
+    const initializeJob = async () => {
+      const shouldConnect = await loadInitialStatus();
+      if (shouldConnect) {
+        connect();
+      }
+    };
+
+    initializeJob();
 
     return () => {
       disconnect();
     };
-  }, [connect, disconnect]);
+  }, [loadInitialStatus, connect, disconnect]);
 
   return {
     jobState,

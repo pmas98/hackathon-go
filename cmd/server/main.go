@@ -44,6 +44,7 @@ func main() {
 	router.GET("/results/:job_id", resultsHandler.HandleGetResult)
 	router.GET("/results/:job_id/export", resultsHandler.HandleExportResult)
 	router.GET("/jobs", jobsHandler.HandleGetJobs)
+	router.GET("/jobs/:job_id/status", jobsHandler.HandleGetJobStatus)
 	router.GET("/ws/:job_id", wsHandler.HandleWebSocket)
 
 	if err := router.Run(":8080"); err != nil {

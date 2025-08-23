@@ -27,3 +27,36 @@ func (h *JobsHandler) HandleGetJobs(c *gin.Context) {
 
 	c.JSON(http.StatusOK, gin.H{"job_ids": jobIDs})
 }
+
+// HandleGetJobStatus retrieves the current status of a specific job.
+func (h *JobsHandler) HandleGetJobStatus(c *gin.Context) {
+	jobID := c.Param("job_id")
+	if jobID == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "job_id is required"})
+		return
+	}
+
+	// Get job status from Redis
+	status, err := h.Redis.GetJobStatus(jobID)
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "job not found or expired"})
+		return
+	}
+
+	// Get job progress from Redis
+	progress, err := h.Redis.GetJobProgress(jobID)
+	if err != nil {
+		progress = 0 // Default to 0 if progress not found
+	}
+
+	// Check if job has results (completed)
+	hasResults, _ := h.Redis.HasJobResults(jobID)
+
+	c.JSON(http.StatusOK, gin.H{
+		"job_id": jobID,
+		"status": status,
+		"progress": progress,
+		"has_results": hasResults,
+		"is_completed": hasResults,
+	})
+}

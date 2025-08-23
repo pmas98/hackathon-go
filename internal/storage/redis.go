@@ -3,6 +3,7 @@ package storage
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"time"
 
 	"hackathon-go/internal/models"
@@ -56,4 +57,53 @@ func (r *RedisClient) GetResult(jobID string) (*models.ComparisonResult, error) 
 // GetAllJobIDs retrieves all job IDs (keys) from Redis.
 func (r *RedisClient) GetAllJobIDs() ([]string, error) {
 	return r.Client.Keys(ctx, "*").Result()
+}
+
+// GetJobStatus retrieves the current status of a job from Redis.
+func (r *RedisClient) GetJobStatus(jobID string) (string, error) {
+	// Try to get status from a specific key first
+	status, err := r.Client.Get(ctx, jobID+":status").Result()
+	if err == nil {
+		return status, nil
+	}
+
+	// If no status key, check if job has results (completed)
+	_, err = r.GetResult(jobID)
+	if err == nil {
+		return "Processamento finalizado", nil
+	}
+
+	// Default status if job exists but no specific status
+	return "Job criado", nil
+}
+
+// GetJobProgress retrieves the current progress of a job from Redis.
+func (r *RedisClient) GetJobProgress(jobID string) (int, error) {
+	progress, err := r.Client.Get(ctx, jobID+":progress").Result()
+	if err != nil {
+		// If no progress key, check if job is completed
+		_, err = r.GetResult(jobID)
+		if err == nil {
+			return 100, nil // Job completed
+		}
+		return 0, err // No progress and no results
+	}
+
+	// Parse progress as integer
+	var progressInt int
+	_, err = fmt.Sscanf(progress, "%d", &progressInt)
+	if err != nil {
+		return 0, err
+	}
+
+	return progressInt, nil
+}
+
+// HasJobResults checks if a job has completed results.
+func (r *RedisClient) HasJobResults(jobID string) (bool, error) {
+	_, err := r.GetResult(jobID)
+	if err != nil {
+		return false, nil // Job not found or no results
+	}
+	return true, nil // Job has results
 }
