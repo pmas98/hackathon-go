@@ -9,11 +9,11 @@ export default function JobProgress() {
   const { jobId } = useParams<{ jobId: string }>();
   const navigate = useNavigate();
   
-  const { jobState, reconnect } = useJobSocket(jobId!);
+  const { jobState, isInitialLoading, reconnect } = useJobSocket(jobId!);
 
   const isFinished = jobState.status === 'Processamento finalizado';
   const hasError = jobState.status.includes('Erro');
-  const isLoading = jobState.status === 'Carregando status...';
+  const isLoading = isInitialLoading;
 
   if (isLoading) {
     return (
@@ -151,7 +151,7 @@ export default function JobProgress() {
                 const Icon = step.icon;
                 const isCompleted = isFinished || 
                   jobState.status === step.label || 
-                  (index > 0 && jobState.progress > (index / 8));
+                  (index > 0 && jobState.progress > (index / 8) * 100);
                 const isCurrent = !isFinished && jobState.status === step.label;
                 
                 return (

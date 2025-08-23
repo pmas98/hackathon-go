@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"encoding/json"
 	"fmt"
 	"hackathon-go/internal/api"
 	"hackathon-go/internal/comparison"
@@ -17,6 +18,22 @@ import (
 // UploadHandler handles the CSV upload and comparison initiation.
 type UploadHandler struct {
 	Redis *storage.RedisClient
+}
+
+// sendProgress sends both status and progress updates via WebSocket
+func (h *UploadHandler) sendProgress(jobID, status string, progressPercent float64) {
+	// Send status update
+	ws.HubInstance.Send(jobID, status)
+	
+	// Send progress update as JSON
+	progressMsg := map[string]float64{"progress": progressPercent}
+	if progressJSON, err := json.Marshal(progressMsg); err == nil {
+		ws.HubInstance.Send(jobID, string(progressJSON))
+	}
+	
+	// Store progress in Redis for API calls
+	h.Redis.SetJobStatus(jobID, status)
+	h.Redis.SetJobProgress(jobID, int(progressPercent))
 }
 
 // HandleUpload is the Gin handler function for the upload endpoint.
@@ -42,31 +59,31 @@ func (h *UploadHandler) HandleUpload(c *gin.Context) {
 	startTime := time.Now()
 
 	// Inform websocket clients that job has been created
-	ws.HubInstance.Send(jobID, "job_created")
-	ws.HubInstance.Send(jobID, "parsing_csv")
+	h.sendProgress(jobID, "job_created", 11.11)
+	h.sendProgress(jobID, "parsing_csv", 22.22)
 
 	csvProducts, err := csv.ParseProducts(f)
 	if err != nil {
-		ws.HubInstance.Send(jobID, "error_parsing_csv")
+		h.sendProgress(jobID, "error_parsing_csv", 0)
 		c.JSON(http.StatusBadRequest, gin.H{"error": "failed to parse CSV: " + err.Error()})
 		return
 	}
-	ws.HubInstance.Send(jobID, "csv_parsed")
+	h.sendProgress(jobID, "csv_parsed", 33.33)
 
 	// Run comparison in a goroutine to not block the request
 	go func() {
 		// Step 1: Fetch API products
-		ws.HubInstance.Send(jobID, "fetching_api_products")
+		h.sendProgress(jobID, "fetching_api_products", 44.44)
 		apiProducts, err := api.FetchProducts(jobID)
 		if err != nil {
-			ws.HubInstance.Send(jobID, "error_fetching_api_products")
+			h.sendProgress(jobID, "error_fetching_api_products", 0)
 			fmt.Println("Error fetching products from API:", err)
 			return
 		}
-		ws.HubInstance.Send(jobID, "api_products_fetched")
+		h.sendProgress(jobID, "api_products_fetched", 55.55)
 
 		// Step 2: Compare products
-		ws.HubInstance.Send(jobID, "comparing_products")
+		h.sendProgress(jobID, "comparing_products", 66.66)
 		result := comparison.CompareProducts(apiProducts, csvProducts)
 		
 		// Calculate processing duration
@@ -78,12 +95,12 @@ func (h *UploadHandler) HandleUpload(c *gin.Context) {
 		result.CompletedAt = endTime.Unix()
 		result.DurationMs = duration.Milliseconds()
 		
-		ws.HubInstance.Send(jobID, "comparison_done")
+		h.sendProgress(jobID, "comparison_done", 77.77)
 
 		// Step 3: Store results
 		h.Redis.SaveResult(jobID, &result, time.Hour*24)
-		ws.HubInstance.Send(jobID, "saved_results")
-		ws.HubInstance.Send(jobID, "finished")
+		h.sendProgress(jobID, "saved_results", 88.88)
+		h.sendProgress(jobID, "finished", 100.0)
 
 		fmt.Printf("Comparison done in %v\n", duration)
 	}()

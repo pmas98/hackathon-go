@@ -6,6 +6,7 @@ import { STATUS_LABELS } from './schema';
 
 interface UseJobSocketReturn {
   jobState: JobState;
+  isInitialLoading: boolean;
   connect: () => void;
   disconnect: () => void;
   reconnect: () => void;
@@ -18,6 +19,10 @@ export function useJobSocket(jobId: string): UseJobSocketReturn {
     progress: 0,
     isConnected: false
   });
+  
+
+  
+  const [isInitialLoading, setIsInitialLoading] = useState(true);
 
   const wsRef = useRef<WebSocket | null>(null);
   const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -30,14 +35,7 @@ export function useJobSocket(jobId: string): UseJobSocketReturn {
     try {
       const jobStatus = await api.getJobStatus(jobId);
       
-      setJobState(prev => ({
-        ...prev,
-        status: STATUS_LABELS[jobStatus.status] || jobStatus.status,
-        progress: jobStatus.progress,
-        isConnected: true
-      }));
-
-      // If job is completed, don't connect to WebSocket
+      // If job is completed, set progress to 100 and don't connect to WebSocket
       if (jobStatus.is_completed) {
         setJobState(prev => ({
           ...prev,
@@ -45,10 +43,20 @@ export function useJobSocket(jobId: string): UseJobSocketReturn {
           progress: 100,
           isConnected: true
         }));
+        setIsInitialLoading(false);
         return false; // Don't connect to WebSocket
       }
 
+      // For jobs in progress, use the actual progress from API (convert from 0-1 to 0-100)
+      setJobState(prev => ({
+        ...prev,
+        status: STATUS_LABELS[jobStatus.status] || jobStatus.status,
+        progress: jobStatus.progress * 100, // Converter de 0-1 para 0-100
+        isConnected: true
+      }));
+
       hasLoadedInitialStatus.current = true;
+      setIsInitialLoading(false);
       return true; // Connect to WebSocket
     } catch (error) {
       console.error('Erro ao carregar status inicial do job:', error);
@@ -57,6 +65,7 @@ export function useJobSocket(jobId: string): UseJobSocketReturn {
         status: 'Erro ao carregar status',
         isConnected: false
       }));
+      setIsInitialLoading(false);
       return false; // Don't connect to WebSocket
     }
   }, [jobId]);
@@ -74,7 +83,7 @@ export function useJobSocket(jobId: string): UseJobSocketReturn {
         setJobState(prev => ({
           ...prev,
           isConnected: true,
-          status: 'Conectado'
+          status: hasLoadedInitialStatus.current ? prev.status : 'Conectado'
         }));
         reconnectAttemptsRef.current = 0;
       };
@@ -93,7 +102,7 @@ export function useJobSocket(jobId: string): UseJobSocketReturn {
           } else if (data.type === 'progress' && typeof data.progress === 'number') {
             setJobState(prev => ({
               ...prev,
-              progress: data.progress || 0
+              progress: (data.progress || 0) * 100 // Converter de 0-1 para 0-100
             }));
           }
         } catch (error) {
@@ -102,11 +111,14 @@ export function useJobSocket(jobId: string): UseJobSocketReturn {
       };
 
       ws.onclose = (event) => {
-        setJobState(prev => ({
-          ...prev,
-          isConnected: false,
-          status: 'Desconectado'
-        }));
+        // Só mostrar "Desconectado" se não estivermos no loading inicial
+        if (!isInitialLoading) {
+          setJobState(prev => ({
+            ...prev,
+            isConnected: false,
+            status: 'Desconectado'
+          }));
+        }
 
         // Tentar reconectar automaticamente se não foi fechado intencionalmente
         if (event.code !== 1000 && reconnectAttemptsRef.current < maxReconnectAttempts) {
@@ -178,8 +190,11 @@ export function useJobSocket(jobId: string): UseJobSocketReturn {
     };
   }, [loadInitialStatus, connect, disconnect]);
 
+
+
   return {
     jobState,
+    isInitialLoading,
     connect,
     disconnect,
     reconnect

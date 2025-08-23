@@ -107,3 +107,13 @@ func (r *RedisClient) HasJobResults(jobID string) (bool, error) {
 	}
 	return true, nil // Job has results
 }
+
+// SetJobStatus sets the current status of a job in Redis.
+func (r *RedisClient) SetJobStatus(jobID, status string) error {
+	return r.Client.Set(ctx, jobID+":status", status, time.Hour*24).Err()
+}
+
+// SetJobProgress sets the current progress of a job in Redis.
+func (r *RedisClient) SetJobProgress(jobID string, progress int) error {
+	return r.Client.Set(ctx, jobID+":progress", fmt.Sprintf("%d", progress), time.Hour*24).Err()
+}
