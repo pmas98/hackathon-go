@@ -38,6 +38,9 @@ func (h *UploadHandler) HandleUpload(c *gin.Context) {
 	jobID := uuid.New().String()
 	c.JSON(http.StatusOK, gin.H{"job_id": jobID})
 
+	// Capture start time for processing
+	startTime := time.Now()
+
 	// Inform websocket clients that job has been created
 	ws.HubInstance.Send(jobID, "job_created")
 	ws.HubInstance.Send(jobID, "parsing_csv")
@@ -65,6 +68,16 @@ func (h *UploadHandler) HandleUpload(c *gin.Context) {
 		// Step 2: Compare products
 		ws.HubInstance.Send(jobID, "comparing_products")
 		result := comparison.CompareProducts(apiProducts, csvProducts)
+		
+		// Calculate processing duration
+		endTime := time.Now()
+		duration := endTime.Sub(startTime)
+		
+		// Add timing information to result
+		result.StartedAt = startTime.Unix()
+		result.CompletedAt = endTime.Unix()
+		result.DurationMs = duration.Milliseconds()
+		
 		ws.HubInstance.Send(jobID, "comparison_done")
 
 		// Step 3: Store results
@@ -72,6 +85,6 @@ func (h *UploadHandler) HandleUpload(c *gin.Context) {
 		ws.HubInstance.Send(jobID, "saved_results")
 		ws.HubInstance.Send(jobID, "finished")
 
-		fmt.Println("Comparison done")
+		fmt.Printf("Comparison done in %v\n", duration)
 	}()
 }

@@ -54,6 +54,9 @@ type ErrorDetail struct {
 
 // ComparisonResult represents the full report of a comparison task.
 type ComparisonResult struct {
-	Summary Summary       `json:"summary"`
-	Errors  []ErrorDetail `json:"errors"`
+	Summary     Summary       `json:"summary"`
+	Errors      []ErrorDetail `json:"errors"`
+	StartedAt   int64         `json:"started_at"`   // Unix timestamp when processing started
+	CompletedAt int64         `json:"completed_at"` // Unix timestamp when processing completed
+	DurationMs  int64         `json:"duration_ms"`  // Total processing time in milliseconds
 }
