@@ -68,7 +68,6 @@ export const api = {
 	async getJobStatus(jobId: string): Promise<{
 		job_id: string;
 		status: string;
-		progress: number;
 		has_results: boolean;
 		is_completed: boolean;
 	}> {

@@ -19,7 +19,7 @@ func CompareProducts(apiProducts, csvProducts []models.Product) models.Compariso
 
 	var result models.ComparisonResult
 	result.Errors = []models.ErrorDetail{}
-	
+
 	// Initialize the Categories map
 	result.Summary.Categories = make(map[string]int)
 	result.Summary.Categories["nome"] = 0
@@ -28,7 +28,7 @@ func CompareProducts(apiProducts, csvProducts []models.Product) models.Compariso
 	result.Summary.Categories["estoque"] = 0
 	result.Summary.Categories["fornecedor"] = 0
 
-	errorChan := make(chan models.ErrorDetail, len(csvMap)+len(apiProducts))
+	errorChan := make(chan models.ErrorDetail, len(csvMap))
 	matchedChan := make(chan bool, len(csvProducts))
 
 	var wg sync.WaitGroup
@@ -60,22 +60,6 @@ func CompareProducts(apiProducts, csvProducts []models.Product) models.Compariso
 		}(id, csvProduct)
 	}
 
-	// Find products missing in the CSV
-	for id, apiProduct := range apiMap {
-		wg.Add(1)
-		go func(id int, apiProduct models.Product) {
-			defer wg.Done()
-			if _, ok := csvMap[id]; !ok {
-				// Product exists in API but not in CSV
-				errorChan <- models.ErrorDetail{
-					Type:  "missing_in_csv",
-					APIID: id,
-					Nome:  apiProduct.Nome,
-				}
-			}
-		}(id, apiProduct)
-	}
-
 	// A separate goroutine to wait for all comparisons to finish and then close the channels
 	go func() {
 		wg.Wait()
@@ -95,8 +79,6 @@ func CompareProducts(apiProducts, csvProducts []models.Product) models.Compariso
 			}
 		case "missing_in_api":
 			result.Summary.MissingInAPI++
-		case "missing_in_csv":
-			result.Summary.MissingInCSV++
 		}
 	}
 
@@ -104,7 +86,14 @@ func CompareProducts(apiProducts, csvProducts []models.Product) models.Compariso
 		result.Summary.Matched++
 	}
 
-	result.Summary.TotalAPIItems = len(apiProducts)
+	// Count how many API items were actually used for comparison (those that match CSV IDs)
+	relevantAPIItems := 0
+	for _, csvProduct := range csvProducts {
+		if _, exists := apiMap[csvProduct.ID]; exists {
+			relevantAPIItems++
+		}
+	}
+	result.Summary.TotalAPIItems = relevantAPIItems
 	result.Summary.TotalCSVItems = len(csvProducts)
 
 	return result
