@@ -102,7 +102,7 @@ export function useJobSocket(jobId: string): UseJobSocketReturn {
           } else if (data.type === 'progress' && typeof data.progress === 'number') {
             setJobState(prev => ({
               ...prev,
-              progress: data.progress || 0 // Backend already sends percentage values
+              progress: data.progress || 0 // Backend now sends percentage values (0-100)
             }));
           }
         } catch (error) {

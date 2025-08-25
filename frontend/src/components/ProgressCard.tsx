@@ -20,6 +20,7 @@ export function ProgressCard({
   validationTime,
   className 
 }: ProgressCardProps) {
+  
   return (
     <div className={cn("p-8 bg-white/5 backdrop-blur-sm rounded-3xl border border-white/10 shadow-2xl", className)}>
       <div className="mb-6">

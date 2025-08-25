@@ -22,6 +22,7 @@ type UploadHandler struct {
 
 // sendProgress sends both status and progress updates via WebSocket
 func (h *UploadHandler) sendProgress(jobID, status string, progressPercent float64) {
+
 	// Send status update
 	ws.HubInstance.Send(jobID, status)
 
@@ -72,15 +73,30 @@ func (h *UploadHandler) HandleUpload(c *gin.Context) {
 
 	// Run comparison in a goroutine to not block the request
 	go func() {
-		// Step 1: Fetch API products
-		h.sendProgress(jobID, "fetching_api_products", 44.44)
-		apiProducts, err := api.FetchProducts(jobID)
-		if err != nil {
-			h.sendProgress(jobID, "error_fetching_api_products", 0)
-			fmt.Println("Error fetching products from API:", err)
-			return
+		// Step 1: Try to get API products from cache first
+		h.sendProgress(jobID, "checking_cache", 44.44)
+
+		apiProducts, err := h.Redis.GetAPIProducts()
+		if err != nil || len(apiProducts) == 0 {
+			// Cache is empty or expired, fetch from API
+			h.sendProgress(jobID, "fetching_api_products", 44.44)
+
+			apiProducts, err = api.FetchProducts(jobID)
+			if err != nil {
+				h.sendProgress(jobID, "error_fetching_api_products", 0)
+				return
+			}
+
+			// Save the fetched products to cache with 5-minute TTL
+			if cacheErr := h.Redis.SaveAPIProducts(apiProducts); cacheErr != nil {
+				fmt.Printf("Warning: Failed to save API products to cache: %v\n", cacheErr)
+			}
+
+			h.sendProgress(jobID, "api_products_fetched_and_cached", 55.55)
+		} else {
+			// Use cached products
+			h.sendProgress(jobID, "using_cached_api_products", 55.55)
 		}
-		h.sendProgress(jobID, "api_products_fetched", 55.55)
 
 		// Step 2: Compare products
 		h.sendProgress(jobID, "comparing_products", 66.66)

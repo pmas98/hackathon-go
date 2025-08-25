@@ -1,6 +1,10 @@
 package ws
 
-import "sync"
+import (
+	"fmt"
+	"sync"
+	"time"
+)
 
 type Hub struct {
 	mu          sync.RWMutex
@@ -48,11 +52,15 @@ func (h *Hub) Send(jobID, msg string) {
 	subs := h.subscribers[jobID]
 	h.mu.RUnlock()
 
-	for _, ch := range subs {
+	for i, ch := range subs {
 		// Non-blocking send – drop message if buffer is full.
 		select {
 		case ch <- msg:
+			fmt.Printf("[DEBUG] [%s] WebSocket hub: Message sent to subscriber %d for job %s\n",
+				time.Now().Format("15:04:05.000"), i, jobID)
 		default:
+			fmt.Printf("[WARNING] [%s] WebSocket hub: Failed to send message to subscriber %d for job %s (buffer full)\n",
+				time.Now().Format("15:04:05.000"), i, jobID)
 		}
 	}
 }

@@ -73,9 +73,9 @@ func (h *ResultsHandler) HandleGetResult(c *gin.Context) {
 	}
 
 	// Get filter parameters
-	filterField := c.Query("filter")      // Filter by specific field (nome, categoria, preco, estoque, fornecedor)
-	filterType := c.Query("type")        // Filter by error type (mismatch, missing_in_api, missing_in_csv)
-	filterValue := c.Query("value")      // Filter by specific value in the field
+	filterField := c.Query("filter") // Filter by specific field (nome, categoria, preco, estoque, fornecedor)
+	filterType := c.Query("type")    // Filter by error type (mismatch, missing_in_api, missing_in_csv)
+	filterValue := c.Query("value")  // Filter by specific value in the field
 
 	result, err := h.Redis.GetResult(jobID)
 	if err == redis.Nil {
@@ -91,9 +91,6 @@ func (h *ResultsHandler) HandleGetResult(c *gin.Context) {
 	var filteredErrors []models.ErrorDetail
 	if filterField != "" || filterType != "" || filterValue != "" {
 		filteredErrors = h.applyFilters(result.Errors, filterField, filterType, filterValue)
-		fmt.Printf("[DEBUG] Filtering results: field='%s', type='%s', value='%s'\n", 
-			filterField, filterType, filterValue)
-		fmt.Printf("[DEBUG] Original errors: %d, Filtered errors: %d\n", len(result.Errors), len(filteredErrors))
 	} else {
 		filteredErrors = result.Errors
 	}
@@ -133,14 +130,14 @@ func (h *ResultsHandler) HandleGetResult(c *gin.Context) {
 // applyFilters applies multiple filters to the errors list
 func (h *ResultsHandler) applyFilters(errors []models.ErrorDetail, filterField, filterType, filterValue string) []models.ErrorDetail {
 	var filtered []models.ErrorDetail
-	
+
 	for _, err := range errors {
 		// Check if this error passes all filters
 		if h.matchesFilters(err, filterField, filterType, filterValue) {
 			filtered = append(filtered, err)
 		}
 	}
-	
+
 	return filtered
 }
 
@@ -150,7 +147,7 @@ func (h *ResultsHandler) matchesFilters(err models.ErrorDetail, filterField, fil
 	if filterType != "" && err.Type != filterType {
 		return false
 	}
-	
+
 	// Filter by specific field
 	if filterField != "" {
 		if err.Fields == nil {
@@ -159,21 +156,21 @@ func (h *ResultsHandler) matchesFilters(err models.ErrorDetail, filterField, fil
 		if _, exists := err.Fields[filterField]; !exists {
 			return false // Field doesn't exist in this error
 		}
-		
+
 		// If we also have a value filter, check the field values
 		if filterValue != "" {
 			field := err.Fields[filterField]
 			apiValue := fmt.Sprint(field.APIValue)
 			csvValue := fmt.Sprint(field.CSVValue)
-			
+
 			// Check if either API value or CSV value contains the filter value (case-insensitive)
 			if !strings.Contains(strings.ToLower(apiValue), strings.ToLower(filterValue)) &&
-			   !strings.Contains(strings.ToLower(csvValue), strings.ToLower(filterValue)) {
+				!strings.Contains(strings.ToLower(csvValue), strings.ToLower(filterValue)) {
 				return false
 			}
 		}
 	}
-	
+
 	return true
 }
 

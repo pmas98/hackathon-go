@@ -56,10 +56,6 @@ export default function Results() {
 				setError(null);
 				
 				const data = await api.getResults(jobId, currentPage, pageSize, filters);
-				console.log('🐛 DEBUG - API Response completa:', data);
-				console.log('🐛 DEBUG - Timing field:', data.timing);
-				console.log('🐛 DEBUG - Filters applied:', filters);
-				console.log('🐛 DEBUG - URL params:', Object.fromEntries(searchParams));
 				setResults(data);
 				setPagination(data.pagination);
 				
