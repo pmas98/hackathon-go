@@ -1,7 +1,7 @@
-import { useState, useCallback, useEffect, useRef } from 'react';
-import { Search, Filter, ChevronRight, ChevronDown, XCircle, Info } from 'lucide-react';
+import { useState, useMemo, useCallback, useEffect } from 'react';
+import { Search, Filter, ArrowUp, ArrowDown, ArrowUpDown, ChevronRight, ChevronDown, XCircle, Info } from 'lucide-react';
 import { useDebounce } from '@/lib/hooks/useDebounce';
-import type { ErrorDetail, ResultsFilters } from '@/lib/types';
+import type { ErrorDetail } from '@/lib/types';
 
 interface DivergencesTableProps {
   errors: ErrorDetail[];
@@ -11,8 +11,6 @@ interface DivergencesTableProps {
   totalItems: number;
   onPageChange: (page: number) => void;
   onPageSizeChange: (size: number) => void;
-  onFiltersChange: (filters: ResultsFilters) => void;
-  initialFilters?: ResultsFilters;
 }
 
 // Helper functions for type icons and labels
@@ -63,32 +61,25 @@ export function DivergencesTable({
   totalPages,
   totalItems,
   onPageChange,
-  onPageSizeChange,
-  onFiltersChange,
-  initialFilters = {}
+  onPageSizeChange
 }: DivergencesTableProps) {
-  // Initialize states
+  const [globalFilter, setGlobalFilter] = useState('');
   const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
+  const [sortField, setSortField] = useState<'api_id' | 'type' | 'categoria'>('api_id');
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
   const [isFiltersExpanded, setIsFiltersExpanded] = useState(false);
   
-  // Backend filters state - initialize with URL values
-  const [backendFilters, setBackendFilters] = useState<ResultsFilters>({
-    filter: initialFilters.filter || '',
-    type: initialFilters.type || '',
-    value: initialFilters.value || ''
+  // Internal filters state
+  const [internalFilters, setInternalFilters] = useState({
+    type: '',
+    categoria: '',
+    precoMin: undefined as number | undefined,
+    precoMax: undefined as number | undefined,
+    estoqueMin: undefined as number | undefined,
+    estoqueMax: undefined as number | undefined
   });
 
-  // Debounce the search value for better performance
-  const debouncedSearchValue = useDebounce(backendFilters.value || '', 800);
-
-  // Sync with external URL changes
-  useEffect(() => {
-    setBackendFilters({
-      filter: initialFilters.filter || '',
-      type: initialFilters.type || '',
-      value: initialFilters.value || ''
-    });
-  }, [initialFilters]);
+  const debouncedGlobalFilter = useDebounce(globalFilter, 300);
 
   const toggleRow = useCallback((rowId: string) => {
     setExpandedRows(prev => {
@@ -102,6 +93,15 @@ export function DivergencesTable({
     });
   }, []);
 
+  const handleSort = useCallback((field: 'api_id' | 'type' | 'categoria') => {
+    if (sortField === field) {
+      setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortField(field);
+      setSortOrder('asc');
+    }
+  }, [sortField, sortOrder]);
+
   const handlePageChange = useCallback((page: number) => {
     onPageChange(page);
   }, [onPageChange]);
@@ -110,47 +110,109 @@ export function DivergencesTable({
     onPageSizeChange(size);
   }, [onPageSizeChange]);
 
-  // Update backend filters
-  const updateBackendFilter = useCallback((key: keyof ResultsFilters, value: string | undefined) => {
-    setBackendFilters(prev => ({
+  // Update internal filters
+  const updateFilter = useCallback((key: keyof typeof internalFilters, value: string | number | undefined) => {
+    setInternalFilters(prev => ({
       ...prev,
-      [key]: value || ''
+      [key]: value
     }));
   }, []);
 
-  // Use ref to store the callback to avoid dependency issues
-  const onFiltersChangeRef = useRef(onFiltersChange);
-  onFiltersChangeRef.current = onFiltersChange;
+  // Apply filters and sorting
+  const processedErrors = useMemo(() => {
+    let filtered = errors;
 
-  // Track if this is initial mount to avoid triggering on first render
-  const isInitialMount = useRef(true);
-  
-  // Communicate filter changes to parent component (Results.tsx)
-  useEffect(() => {
-    // Skip on initial mount to avoid triggering during initialization
-    if (isInitialMount.current) {
-      isInitialMount.current = false;
-      return;
+    // Apply global filter
+    if (debouncedGlobalFilter) {
+      filtered = filtered.filter(error => 
+        error.api_id.toString().includes(debouncedGlobalFilter) ||
+        error.type.toLowerCase().includes(debouncedGlobalFilter.toLowerCase()) ||
+        (error.fields?.categoria?.csv || '').toLowerCase().includes(debouncedGlobalFilter.toLowerCase()) ||
+        Object.values(error.fields || {}).some(field => 
+          field?.csv?.toString().toLowerCase().includes(debouncedGlobalFilter.toLowerCase()) || 
+          field?.api?.toString().toLowerCase().includes(debouncedGlobalFilter.toLowerCase())
+        )
+      );
     }
 
-    const filters: ResultsFilters = {};
+    // Apply column filters
+    if (internalFilters.type) {
+      filtered = filtered.filter(error => error.type === internalFilters.type);
+    }
+    if (internalFilters.categoria) {
+      filtered = filtered.filter(error => error.fields?.categoria?.csv === internalFilters.categoria);
+    }
     
-    // Add backend filters
-    if (backendFilters.filter) filters.filter = backendFilters.filter;
-    if (backendFilters.type) filters.type = backendFilters.type;
-    if (debouncedSearchValue) filters.value = debouncedSearchValue;
+    // Apply price range filters
+    if (internalFilters.precoMin !== undefined) {
+      filtered = filtered.filter(error => {
+        const preco = error.fields?.preco?.csv || error.fields?.preco?.api;
+        return preco !== undefined && Number(preco) >= internalFilters.precoMin!;
+      });
+    }
+    if (internalFilters.precoMax !== undefined) {
+      filtered = filtered.filter(error => {
+        const preco = error.fields?.preco?.csv || error.fields?.preco?.api;
+        return preco !== undefined && Number(preco) <= internalFilters.precoMax!;
+      });
+    }
+    
+    // Apply stock range filters
+    if (internalFilters.estoqueMin !== undefined) {
+      filtered = filtered.filter(error => {
+        const estoque = error.fields?.estoque?.csv || error.fields?.estoque?.api;
+        return estoque !== undefined && Number(estoque) >= internalFilters.estoqueMin!;
+      });
+    }
+    if (internalFilters.estoqueMax !== undefined) {
+      filtered = filtered.filter(error => {
+        const estoque = error.fields?.estoque?.csv || error.fields?.estoque?.api;
+        return estoque !== undefined && Number(estoque) <= internalFilters.estoqueMax!;
+      });
+    }
 
-    onFiltersChangeRef.current(filters);
-  }, [debouncedSearchValue, backendFilters.filter, backendFilters.type]);
+    // Apply sorting
+    filtered.sort((a, b) => {
+      let aValue: string | number, bValue: string | number;
+      
+      switch (sortField) {
+        case 'api_id':
+          aValue = a.api_id;
+          bValue = b.api_id;
+          break;
+        case 'type':
+          aValue = a.type;
+          bValue = b.type;
+          break;
+        case 'categoria':
+          aValue = a.fields?.categoria?.csv || '';
+          bValue = b.fields?.categoria?.csv || '';
+          break;
+        default:
+          return 0;
+      }
+      
+      if (aValue < bValue) return sortOrder === 'asc' ? -1 : 1;
+      if (aValue > bValue) return sortOrder === 'asc' ? 1 : -1;
+      return 0;
+    });
 
-  // Reset to first page when filters change (handled by parent component now)
+    return filtered;
+  }, [errors, debouncedGlobalFilter, internalFilters, sortField, sortOrder]);
+
+  // Reset to first page when filters change
+  useEffect(() => {
+    if (currentPage !== 1) {
+      onPageChange(1);
+    }
+  }, [debouncedGlobalFilter, internalFilters, currentPage, onPageChange]);
 
   return (
     <div className="bg-white/5 backdrop-blur-sm rounded-3xl border border-white/10 shadow-2xl overflow-hidden">
       {/* Integrated Filters and Table */}
       <div className="p-6">
-        {/* Header with Title */}
-        <div className="mb-6">
+        {/* Header with Title and Search */}
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 mb-6">
           <div>
             <h3 className="text-2xl font-bold bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent">
               Divergências Encontradas
@@ -158,6 +220,16 @@ export function DivergencesTable({
             <p className="text-purple-200 text-sm mt-1">
               {totalItems} divergência{totalItems !== 1 ? 's' : ''} encontrada{totalItems !== 1 ? 's' : ''}
             </p>
+          </div>
+          
+          <div className="relative flex-1 max-w-md">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-purple-300" />
+            <input
+              placeholder="Buscar por ID, valores, campos..."
+              value={globalFilter}
+              onChange={(e) => setGlobalFilter(e.target.value)}
+              className="w-full pl-10 pr-4 py-3 bg-white/10 border border-white/20 rounded-xl text-white placeholder-purple-300 focus:border-purple-400 focus:ring-2 focus:ring-purple-400/20 transition-all duration-200"
+            />
           </div>
         </div>
 
@@ -175,16 +247,16 @@ export function DivergencesTable({
               <div className="text-left">
                 <h4 className="text-white font-semibold">Filtros Avançados</h4>
                 <p className="text-xs text-purple-300">
-                  {Object.values(backendFilters).filter(v => v !== undefined && v !== null && v !== '').length} filtro{Object.values(backendFilters).filter(v => v !== undefined && v !== null && v !== '').length !== 1 ? 's' : ''} ativo{Object.values(backendFilters).filter(v => v !== undefined && v !== null && v !== '').length !== 1 ? 's' : ''}
+                  {Object.values(internalFilters).filter(v => v !== undefined && v !== null && v !== '').length + (debouncedGlobalFilter ? 1 : 0)} filtro{Object.values(internalFilters).filter(v => v !== undefined && v !== null && v !== '').length + (debouncedGlobalFilter ? 1 : 0) !== 1 ? 's' : ''} ativo{Object.values(internalFilters).filter(v => v !== undefined && v !== null && v !== '').length + (debouncedGlobalFilter ? 1 : 0) !== 1 ? 's' : ''}
                 </p>
               </div>
             </div>
             
             <div className="flex items-center gap-3">
-              {Object.values(backendFilters).some(v => v !== undefined && v !== null && v !== '') && (
+              {Object.values(internalFilters).some(v => v !== undefined && v !== null && v !== '') && (
                 <div className="px-3 py-1 bg-purple-500/40 rounded-full border border-purple-400/30">
                   <span className="text-xs text-purple-200 font-medium">
-                    {Object.values(backendFilters).filter(v => v !== undefined && v !== null && v !== '').length} ativo{Object.values(backendFilters).filter(v => v !== undefined && v !== null && v !== '').length !== 1 ? 's' : ''}
+                    {Object.values(internalFilters).filter(v => v !== undefined && v !== null && v !== '').length} ativo{Object.values(internalFilters).filter(v => v !== undefined && v !== null && v !== '').length !== 1 ? 's' : ''}
                   </span>
                 </div>
               )}
@@ -204,14 +276,14 @@ export function DivergencesTable({
             }`}
           >
             <div className="px-6 pb-6 border-t border-purple-500/20">
-              {/* First Row - Type and Field */}
+              {/* First Row - Type and Category */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6 pt-6">
                 {/* Type Filter */}
                 <div className="space-y-2">
                   <label className="text-xs font-medium text-purple-200 uppercase tracking-wide">Tipo de Divergência</label>
                   <select
-                    value={backendFilters.type || ''}
-                    onChange={(e) => updateBackendFilter('type', e.target.value || undefined)}
+                    value={internalFilters.type || ''}
+                    onChange={(e) => updateFilter('type', e.target.value || undefined)}
                     className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-xl text-white text-sm focus:border-purple-400 focus:ring-2 focus:ring-purple-400/20 transition-all duration-200 hover:border-purple-300/50"
                   >
                     <option value="">Todos os tipos</option>
@@ -221,41 +293,75 @@ export function DivergencesTable({
                   </select>
                 </div>
                 
-                {/* Field Filter */}
+                {/* Category Filter */}
                 <div className="space-y-2">
-                  <label className="text-xs font-medium text-purple-200 uppercase tracking-wide">Campo Específico</label>
+                  <label className="text-xs font-medium text-purple-200 uppercase tracking-wide">Categoria</label>
                   <select
-                    value={backendFilters.filter || ''}
-                    onChange={(e) => updateBackendFilter('filter', e.target.value || undefined)}
+                    value={internalFilters.categoria || ''}
+                    onChange={(e) => updateFilter('categoria', e.target.value || undefined)}
                     className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-xl text-white text-sm focus:border-purple-400 focus:ring-2 focus:ring-purple-400/20 transition-all duration-200 hover:border-purple-300/50"
                   >
-                    <option value="">Todos os campos</option>
-                    <option value="nome">Nome</option>
-                    <option value="categoria">Categoria</option>
-                    <option value="preco">Preço</option>
-                    <option value="estoque">Estoque</option>
-                    <option value="fornecedor">Fornecedor</option>
+                    <option value="">Todas as categorias</option>
+                    <option value="Móveis">Móveis</option>
+                    <option value="Hardware">Hardware</option>
+                    <option value="Acessórios">Acessórios</option>
+                    <option value="Componentes">Componentes</option>
+                    <option value="Periféricos">Periféricos</option>
                   </select>
                 </div>
               </div>
               
-              {/* Second Row - Global Search */}
+              {/* Second Row - Price Range */}
               <div className="mb-6">
-                <div className="space-y-2">
-                  <label className="text-xs font-medium text-purple-200 uppercase tracking-wide flex items-center gap-2">
-                    <Search className="w-4 h-4" />
-                    Buscar em Todos os Campos
-                  </label>
-                  <input
-                    type="text"
-                    placeholder="Buscar por ID, nomes, preços, fornecedores, valores..."
-                    value={backendFilters.value || ''}
-                    onChange={(e) => updateBackendFilter('value', e.target.value || undefined)}
-                    className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-xl text-white text-sm focus:border-purple-400 focus:ring-2 focus:ring-purple-400/20 placeholder-purple-300 transition-all duration-200 hover:border-purple-300/50"
-                  />
-                  <p className="text-xs text-purple-300">
-                    Busca global em todos os campos das divergências (IDs, nomes, preços, estoque, fornecedores, etc.)
-                  </p>
+                <label className="text-xs font-medium text-purple-200 uppercase tracking-wide mb-3 block">Faixa de Preço</label>
+                <div className="flex items-center gap-4">
+                  <div className="flex-1">
+                    <label className="text-xs text-purple-300 mb-2 block">Preço Mínimo</label>
+                    <input
+                      type="number"
+                      placeholder="0.00"
+                      value={internalFilters.precoMin || ''}
+                      onChange={(e) => updateFilter('precoMin', e.target.value ? Number(e.target.value) : undefined)}
+                      className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-xl text-white text-sm focus:border-purple-400 focus:ring-2 focus:ring-purple-400/20 placeholder-purple-300 transition-all duration-200 hover:border-purple-300/50"
+                    />
+                  </div>
+                  <div className="flex-1">
+                    <label className="text-xs text-purple-300 mb-2 block">Preço Máximo</label>
+                    <input
+                      type="number"
+                      placeholder="9999.99"
+                      value={internalFilters.precoMax || ''}
+                      onChange={(e) => updateFilter('precoMax', e.target.value ? Number(e.target.value) : undefined)}
+                      className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-xl text-white text-sm focus:border-purple-400 focus:ring-2 focus:ring-purple-400/20 placeholder-purple-300 transition-all duration-200 hover:border-purple-300/50"
+                    />
+                  </div>
+                </div>
+              </div>
+              
+              {/* Third Row - Stock Range */}
+              <div className="mb-6">
+                <label className="text-xs font-medium text-purple-200 uppercase tracking-wide mb-3 block">Faixa de Estoque</label>
+                <div className="flex items-center gap-4">
+                  <div className="flex-1">
+                    <label className="text-xs text-purple-300 mb-2 block">Estoque Mínimo</label>
+                    <input
+                      type="number"
+                      placeholder="0"
+                      value={internalFilters.estoqueMin || ''}
+                      onChange={(e) => updateFilter('estoqueMin', e.target.value ? Number(e.target.value) : undefined)}
+                      className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-xl text-white text-sm focus:border-purple-400 focus:ring-2 focus:ring-purple-400/20 placeholder-purple-300 transition-all duration-200 hover:border-purple-300/50"
+                    />
+                  </div>
+                  <div className="flex-1">
+                    <label className="text-xs text-purple-300 mb-2 block">Estoque Máximo</label>
+                    <input
+                      type="number"
+                      placeholder="500"
+                      value={internalFilters.estoqueMax || ''}
+                      onChange={(e) => updateFilter('estoqueMax', e.target.value ? Number(e.target.value) : undefined)}
+                      className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-xl text-white text-sm focus:border-purple-400 focus:ring-2 focus:ring-purple-400/20 placeholder-purple-300 transition-all duration-200 hover:border-purple-300/50"
+                    />
+                  </div>
                 </div>
               </div>
               
@@ -263,10 +369,14 @@ export function DivergencesTable({
               <div className="flex justify-end pt-4 border-t border-purple-500/20">
                 <button
                   onClick={() => {
-                    setBackendFilters({
-                      filter: '',
+                    setGlobalFilter('');
+                    setInternalFilters({
                       type: '',
-                      value: ''
+                      categoria: '',
+                      precoMin: undefined,
+                      precoMax: undefined,
+                      estoqueMin: undefined,
+                      estoqueMax: undefined
                     });
                   }}
                   className="px-6 py-2 bg-gradient-to-r from-red-500/20 to-red-600/20 hover:from-red-500/30 hover:to-red-600/30 text-red-300 rounded-xl transition-all duration-200 border border-red-500/30 hover:border-red-500/50 font-medium text-sm"
@@ -283,9 +393,45 @@ export function DivergencesTable({
           <table className="w-full">
             <thead>
               <tr className="bg-white/10 border-b border-white/20">
-                <th className="p-3 text-left text-sm font-semibold text-white">ID</th>
-                <th className="p-3 text-left text-sm font-semibold text-white">Tipo</th>
-                <th className="p-3 text-left text-sm font-semibold text-white">Categoria</th>
+                <th className="p-3 text-left">
+                  <button
+                    onClick={() => handleSort('api_id')}
+                    className="flex items-center space-x-1 text-sm font-semibold text-white hover:text-purple-200 transition-colors"
+                  >
+                    <span>ID</span>
+                    {sortField === 'api_id' ? (
+                      sortOrder === 'asc' ? <ArrowUp className="h-4 w-4" /> : <ArrowDown className="h-4 w-4" />
+                    ) : (
+                      <ArrowUpDown className="h-4 w-4" />
+                    )}
+                  </button>
+                </th>
+                <th className="p-3 text-left">
+                  <button
+                    onClick={() => handleSort('type')}
+                    className="flex items-center space-x-1 text-sm font-semibold text-white hover:text-purple-200 transition-colors"
+                  >
+                    <span>Tipo</span>
+                    {sortField === 'type' ? (
+                      sortOrder === 'asc' ? <ArrowUp className="h-4 w-4" /> : <ArrowDown className="h-4 w-4" />
+                    ) : (
+                      <ArrowUpDown className="h-4 w-4" />
+                    )}
+                  </button>
+                </th>
+                <th className="p-3 text-left">
+                  <button
+                    onClick={() => handleSort('categoria')}
+                    className="flex items-center space-x-1 text-sm font-semibold text-white hover:text-purple-200 transition-colors"
+                  >
+                    <span>Categoria</span>
+                    {sortField === 'categoria' ? (
+                      sortOrder === 'asc' ? <ArrowUp className="h-4 w-4" /> : <ArrowDown className="h-4 w-4" />
+                    ) : (
+                      <ArrowUpDown className="h-4 w-4" />
+                    )}
+                  </button>
+                </th>
                 <th className="p-3 text-left text-sm font-semibold text-white">Campo</th>
                 <th className="p-3 text-left text-sm font-semibold text-white">Valor CSV</th>
                 <th className="p-3 text-left text-sm font-semibold text-white">Valor API</th>
@@ -293,7 +439,7 @@ export function DivergencesTable({
               </tr>
             </thead>
             <tbody>
-              {errors && errors.length > 0 ? errors.map((error, errorIndex) => {
+              {processedErrors.map((error, errorIndex) => {
                 const rowId = `${error.api_id}-${errorIndex}`;
                 const isExpanded = expandedRows.has(rowId);
                 
@@ -393,20 +539,7 @@ export function DivergencesTable({
                                       <div className="text-center">
                                         <div className="text-xs text-red-300 mb-1">Diferença</div>
                                         <div className="text-sm font-mono text-red-400 bg-red-600/20 rounded px-3 py-1">
-                                          {(() => {
-                                            const numericFields = ['preco', 'estoque'];
-                                            
-                                            if (numericFields.includes(fieldName)) {
-                                              const csvNum = Number(detail?.csv || 0);
-                                              const apiNum = Number(detail?.api || 0);
-                                              
-                                              if (!isNaN(csvNum) && !isNaN(apiNum)) {
-                                                return Math.abs(csvNum - apiNum).toLocaleString();
-                                              }
-                                            }
-                                            
-                                            return 'Diferente';
-                                          })()}
+                                          {Math.abs(Number(detail?.csv || 0) - Number(detail?.api || 0))}
                                         </div>
                                       </div>
                                     )}
@@ -420,15 +553,7 @@ export function DivergencesTable({
                     </tr>
                   </>
                 );
-              }) : (
-                <tr>
-                  <td colSpan={7} className="p-8 text-center">
-                    <div className="text-purple-200">
-                      {errors === null ? 'Carregando...' : 'Nenhuma divergência encontrada'}
-                    </div>
-                  </td>
-                </tr>
-              )}
+              })}
             </tbody>
           </table>
         </div>
