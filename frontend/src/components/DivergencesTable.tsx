@@ -112,10 +112,19 @@ export function DivergencesTable({
 
   // Update backend filters
   const updateBackendFilter = useCallback((key: keyof ResultsFilters, value: string | undefined) => {
-    setBackendFilters(prev => ({
-      ...prev,
-      [key]: value || ''
-    }));
+    setBackendFilters(prev => {
+      const newFilters = {
+        ...prev,
+        [key]: value || ''
+      };
+      
+      // If changing the field filter, clear the search value to avoid confusion
+      if (key === 'filter' && value !== prev.filter) {
+        newFilters.value = '';
+      }
+      
+      return newFilters;
+    });
   }, []);
 
   // Use ref to store the callback to avoid dependency issues
@@ -239,22 +248,34 @@ export function DivergencesTable({
                 </div>
               </div>
               
-              {/* Second Row - Global Search */}
+              {/* Second Row - Field-Specific Search */}
               <div className="mb-6">
                 <div className="space-y-2">
                   <label className="text-xs font-medium text-purple-200 uppercase tracking-wide flex items-center gap-2">
                     <Search className="w-4 h-4" />
-                    Buscar em Todos os Campos
+                    Buscar no Campo Selecionado
                   </label>
                   <input
                     type="text"
-                    placeholder="Buscar por ID, nomes, preços, fornecedores, valores..."
+                    placeholder={
+                      backendFilters.filter 
+                        ? `Buscar valores no campo "${backendFilters.filter}"...`
+                        : "Selecione um campo específico primeiro para habilitar a busca"
+                    }
                     value={backendFilters.value || ''}
                     onChange={(e) => updateBackendFilter('value', e.target.value || undefined)}
-                    className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-xl text-white text-sm focus:border-purple-400 focus:ring-2 focus:ring-purple-400/20 placeholder-purple-300 transition-all duration-200 hover:border-purple-300/50"
+                    disabled={!backendFilters.filter}
+                    className={`w-full px-4 py-3 border rounded-xl text-sm transition-all duration-200 ${
+                      backendFilters.filter 
+                        ? 'bg-white/10 text-white placeholder-purple-300 border-white/20 focus:border-purple-400 focus:ring-2 focus:ring-purple-400/20 hover:border-purple-300/50' 
+                        : 'bg-purple-900/20 text-purple-300/60 placeholder-purple-400/50 cursor-not-allowed border-purple-500/30'
+                    }`}
                   />
                   <p className="text-xs text-purple-300">
-                    Busca global em todos os campos das divergências (IDs, nomes, preços, estoque, fornecedores, etc.)
+                    {backendFilters.filter 
+                      ? `Busca específica no campo "${backendFilters.filter}" (ex: nomes, preços, IDs, etc.)`
+                      : "Primeiro selecione um campo específico acima, depois digite aqui para buscar nesse campo"
+                    }
                   </p>
                 </div>
               </div>
