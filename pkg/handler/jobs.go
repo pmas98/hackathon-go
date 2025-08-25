@@ -43,13 +43,20 @@ func (h *JobsHandler) HandleGetJobStatus(c *gin.Context) {
 		return
 	}
 
+	// Get job progress from Redis
+	progress, err := h.Redis.GetJobProgress(jobID)
+	if err != nil {
+		progress = 0 // Default to 0 if progress not found
+	}
+
 	// Check if job has results (completed)
 	hasResults, _ := h.Redis.HasJobResults(jobID)
 
 	c.JSON(http.StatusOK, gin.H{
-		"job_id":       jobID,
-		"status":       status,
-		"has_results":  hasResults,
+		"job_id": jobID,
+		"status": status,
+		"progress": progress,
+		"has_results": hasResults,
 		"is_completed": hasResults,
 	})
 }

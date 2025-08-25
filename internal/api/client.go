@@ -9,10 +9,7 @@ import (
 	"sync/atomic"
 
 	"hackathon-go/internal/models"
-	"hackathon-go/internal/storage"
 	"hackathon-go/internal/ws"
-
-	"github.com/go-redis/redis/v8"
 )
 
 const (
@@ -22,20 +19,8 @@ const (
 
 // FetchProducts retrieves the product list from the external API, handling pagination concurrently.
 // It streams progress updates via the websocket hub using the provided jobID.
-// Uses Redis caching with 5-minute TTL to improve performance.
-func FetchProducts(jobID string, redisClient *storage.RedisClient) ([]models.Product, error) {
+func FetchProducts(jobID string) ([]models.Product, error) {
 	fmt.Println("[DEBUG] Starting FetchProducts...")
-
-	// Try to get cached products first
-	if cachedProducts, err := redisClient.GetAPIProducts(); err == nil {
-		fmt.Printf("[DEBUG] Using cached API products: %d products\n", len(cachedProducts))
-		// Don't send progress updates for cached data - let the upload handler manage progress flow
-		return cachedProducts, nil
-	} else if err != redis.Nil {
-		fmt.Printf("[DEBUG] Error accessing cache: %v, fetching from API\n", err)
-	} else {
-		fmt.Println("[DEBUG] No cached data found, fetching from API")
-	}
 
 	firstPageURL := fmt.Sprintf("%s?page=1&limit=%d", apiURL, limit)
 	fmt.Printf("[DEBUG] Fetching first page: %s\n", firstPageURL)
@@ -152,17 +137,10 @@ func FetchProducts(jobID string, redisClient *storage.RedisClient) ([]models.Pro
 	}
 
 	fmt.Printf("[DEBUG] Total products fetched: %d\n", len(allProducts))
-
-	// Cache the fetched products for 5 minutes
-	if err := redisClient.SaveAPIProducts(allProducts); err != nil {
-		fmt.Printf("[DEBUG] Failed to cache API products: %v\n", err)
-		// Don't fail the request if caching fails, just log it
-	} else {
-		fmt.Println("[DEBUG] API products successfully cached")
-	}
-
 	fmt.Println("[DEBUG] Finished FetchProducts.")
 
-	// Don't send final progress - let the upload handler manage the overall progress flow
+	// Ensure final progress is 100%.
+	finalMsg, _ := json.Marshal(map[string]float64{"progress": 1})
+	ws.HubInstance.Send(jobID, string(finalMsg))
 	return allProducts, nil
 }

@@ -59,7 +59,6 @@ export type CSVHeader = typeof CSV_HEADERS[number];
 
 // Mapeamento de status do backend para labels amigáveis
 export const STATUS_LABELS: Record<string, string> = {
-  'initializing': 'Inicializando job',
   'job_created': 'Job criado',
   'parsing_csv': 'Lendo arquivo CSV',
   'csv_parsed': 'CSV processado',

@@ -3,6 +3,7 @@ package storage
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"time"
 
 	"hackathon-go/internal/models"
@@ -76,6 +77,28 @@ func (r *RedisClient) GetJobStatus(jobID string) (string, error) {
 	return "Job criado", nil
 }
 
+// GetJobProgress retrieves the current progress of a job from Redis.
+func (r *RedisClient) GetJobProgress(jobID string) (int, error) {
+	progress, err := r.Client.Get(ctx, jobID+":progress").Result()
+	if err != nil {
+		// If no progress key, check if job is completed
+		_, err = r.GetResult(jobID)
+		if err == nil {
+			return 100, nil // Job completed
+		}
+		return 0, err // No progress and no results
+	}
+
+	// Parse progress as integer
+	var progressInt int
+	_, err = fmt.Sscanf(progress, "%d", &progressInt)
+	if err != nil {
+		return 0, err
+	}
+
+	return progressInt, nil
+}
+
 // HasJobResults checks if a job has completed results.
 func (r *RedisClient) HasJobResults(jobID string) (bool, error) {
 	_, err := r.GetResult(jobID)
@@ -90,25 +113,7 @@ func (r *RedisClient) SetJobStatus(jobID, status string) error {
 	return r.Client.Set(ctx, jobID+":status", status, time.Hour*24).Err()
 }
 
-// SaveAPIProducts saves the API products to Redis with a 5-minute TTL
-func (r *RedisClient) SaveAPIProducts(products []models.Product) error {
-	data, err := json.Marshal(products)
-	if err != nil {
-		return err
-	}
-	return r.Client.Set(ctx, "api_products_cache", data, 5*time.Minute).Err()
-}
-
-// GetAPIProducts retrieves cached API products from Redis
-func (r *RedisClient) GetAPIProducts() ([]models.Product, error) {
-	data, err := r.Client.Get(ctx, "api_products_cache").Bytes()
-	if err != nil {
-		return nil, err
-	}
-
-	var products []models.Product
-	if err := json.Unmarshal(data, &products); err != nil {
-		return nil, err
-	}
-	return products, nil
+// SetJobProgress sets the current progress of a job in Redis.
+func (r *RedisClient) SetJobProgress(jobID string, progress int) error {
+	return r.Client.Set(ctx, jobID+":progress", fmt.Sprintf("%d", progress), time.Hour*24).Err()
 }
