@@ -47,11 +47,11 @@ export function useJobSocket(jobId: string): UseJobSocketReturn {
         return false; // Don't connect to WebSocket
       }
 
-      // For jobs in progress, use the actual progress from API (convert from 0-1 to 0-100)
+      // For jobs in progress, use the actual progress from API (already in percentage format)
       setJobState(prev => ({
         ...prev,
         status: STATUS_LABELS[jobStatus.status] || jobStatus.status,
-        progress: jobStatus.progress * 100, // Converter de 0-1 para 0-100
+        progress: jobStatus.progress, // Backend already sends percentage values
         isConnected: true
       }));
 
@@ -102,7 +102,7 @@ export function useJobSocket(jobId: string): UseJobSocketReturn {
           } else if (data.type === 'progress' && typeof data.progress === 'number') {
             setJobState(prev => ({
               ...prev,
-              progress: (data.progress || 0) * 100 // Converter de 0-1 para 0-100
+              progress: data.progress || 0 // Backend already sends percentage values
             }));
           }
         } catch (error) {

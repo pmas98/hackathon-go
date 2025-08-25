@@ -53,10 +53,10 @@ func (h *JobsHandler) HandleGetJobStatus(c *gin.Context) {
 	hasResults, _ := h.Redis.HasJobResults(jobID)
 
 	c.JSON(http.StatusOK, gin.H{
-		"job_id": jobID,
-		"status": status,
-		"progress": progress,
-		"has_results": hasResults,
+		"job_id":       jobID,
+		"status":       status,
+		"progress":     progress,
+		"has_results":  hasResults,
 		"is_completed": hasResults,
 	})
 }

@@ -24,13 +24,13 @@ type UploadHandler struct {
 func (h *UploadHandler) sendProgress(jobID, status string, progressPercent float64) {
 	// Send status update
 	ws.HubInstance.Send(jobID, status)
-	
+
 	// Send progress update as JSON
 	progressMsg := map[string]float64{"progress": progressPercent}
 	if progressJSON, err := json.Marshal(progressMsg); err == nil {
 		ws.HubInstance.Send(jobID, string(progressJSON))
 	}
-	
+
 	// Store progress in Redis for API calls
 	h.Redis.SetJobStatus(jobID, status)
 	h.Redis.SetJobProgress(jobID, int(progressPercent))
@@ -85,16 +85,16 @@ func (h *UploadHandler) HandleUpload(c *gin.Context) {
 		// Step 2: Compare products
 		h.sendProgress(jobID, "comparing_products", 66.66)
 		result := comparison.CompareProducts(apiProducts, csvProducts)
-		
+
 		// Calculate processing duration
 		endTime := time.Now()
 		duration := endTime.Sub(startTime)
-		
+
 		// Add timing information to result
 		result.StartedAt = startTime.Unix()
 		result.CompletedAt = endTime.Unix()
 		result.DurationMs = duration.Milliseconds()
-		
+
 		h.sendProgress(jobID, "comparison_done", 77.77)
 
 		// Step 3: Store results

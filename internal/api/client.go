@@ -9,7 +9,6 @@ import (
 	"sync/atomic"
 
 	"hackathon-go/internal/models"
-	"hackathon-go/internal/ws"
 )
 
 const (
@@ -47,9 +46,7 @@ func FetchProducts(jobID string) ([]models.Product, error) {
 
 	fmt.Printf("[DEBUG] First page fetched: %d products\n", len(firstApiResponse.Data))
 
-	// After first page, send initial progress update as JSON.
-	initialProgress, _ := json.Marshal(map[string]float64{"progress": 0}) // will be updated below to actual value
-	ws.HubInstance.Send(jobID, string(initialProgress))
+	// Note: Progress is managed by the upload handler, not here
 
 	allProducts := firstApiResponse.Data
 
@@ -61,11 +58,8 @@ func FetchProducts(jobID string) ([]models.Product, error) {
 	totalPages := firstApiResponse.Pagination.TotalPages
 	fmt.Printf("[DEBUG] Total pages to fetch: %d\n", totalPages)
 
-	// Track pages fetched and send initial progress (first page already fetched).
+		// Track pages fetched for internal monitoring only
 	var fetched int32 = 1
-	progressRatio := float64(fetched) / float64(totalPages)
-	progressJSON, _ := json.Marshal(map[string]float64{"progress": progressRatio})
-	ws.HubInstance.Send(jobID, string(progressJSON))
 
 	if totalPages <= 1 {
 		return allProducts, nil
@@ -113,11 +107,8 @@ func FetchProducts(jobID string) ([]models.Product, error) {
 
 			fmt.Printf("[DEBUG] Page %d fetched: %d products\n", p, len(pageApiResponse.Data))
 
-			// Increment fetched counter and send progress update.
-			newVal := atomic.AddInt32(&fetched, 1)
-			ratio := float64(newVal) / float64(totalPages)
-			progressMsg, _ := json.Marshal(map[string]float64{"progress": ratio})
-			ws.HubInstance.Send(jobID, string(progressMsg))
+						// Increment fetched counter for internal monitoring
+			atomic.AddInt32(&fetched, 1)
 			productsChan <- pageApiResponse.Data
 		}(page)
 	}
@@ -139,8 +130,6 @@ func FetchProducts(jobID string) ([]models.Product, error) {
 	fmt.Printf("[DEBUG] Total products fetched: %d\n", len(allProducts))
 	fmt.Println("[DEBUG] Finished FetchProducts.")
 
-	// Ensure final progress is 100%.
-	finalMsg, _ := json.Marshal(map[string]float64{"progress": 1})
-	ws.HubInstance.Send(jobID, string(finalMsg))
+		// API fetching complete - progress is managed by upload handler
 	return allProducts, nil
 }
