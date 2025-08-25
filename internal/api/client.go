@@ -58,7 +58,7 @@ func FetchProducts(jobID string) ([]models.Product, error) {
 	totalPages := firstApiResponse.Pagination.TotalPages
 	fmt.Printf("[DEBUG] Total pages to fetch: %d\n", totalPages)
 
-		// Track pages fetched for internal monitoring only
+	// Track pages fetched for internal monitoring only
 	var fetched int32 = 1
 
 	if totalPages <= 1 {
@@ -107,7 +107,7 @@ func FetchProducts(jobID string) ([]models.Product, error) {
 
 			fmt.Printf("[DEBUG] Page %d fetched: %d products\n", p, len(pageApiResponse.Data))
 
-						// Increment fetched counter for internal monitoring
+			// Increment fetched counter for internal monitoring
 			atomic.AddInt32(&fetched, 1)
 			productsChan <- pageApiResponse.Data
 		}(page)
@@ -130,6 +130,6 @@ func FetchProducts(jobID string) ([]models.Product, error) {
 	fmt.Printf("[DEBUG] Total products fetched: %d\n", len(allProducts))
 	fmt.Println("[DEBUG] Finished FetchProducts.")
 
-		// API fetching complete - progress is managed by upload handler
+	// API fetching complete - progress is managed by upload handler
 	return allProducts, nil
 }
