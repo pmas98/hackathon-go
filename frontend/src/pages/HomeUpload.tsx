@@ -1,11 +1,11 @@
 import { useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Upload, AlertCircle, CheckCircle, Download, Sparkles, FileText, Clock, Zap, Shield, TrendingUp } from 'lucide-react';
+import { Upload, AlertCircle, CheckCircle, Download, Sparkles, FileText, Zap, Shield, TrendingUp } from 'lucide-react';
 import { Header } from '@/components/Header';
 import { UploadArea } from '@/components/UploadArea';
 import { useCsvValidation } from '@/lib/useCsvValidation';
 import { api } from '@/lib/api';
-import { cn, formatTime } from '@/lib/utils';
+import { cn } from '@/lib/utils';
 
 export default function HomeUpload() {
   const navigate = useNavigate();
@@ -198,8 +198,7 @@ export default function HomeUpload() {
                             {validationResult.isValid ? 'Validação Aprovada' : 'Validação com Erros'}
                           </h3>
                           <p className="text-purple-200 mt-1 sm:mt-2 text-sm sm:text-lg">
-                            <Clock className="inline h-4 w-4 sm:h-5 sm:w-5 mr-2" />
-                            Tempo de validação: {formatTime(validationResult.validationTime)}
+                            Arquivo validado com sucesso
                           </p>
                         </div>
                       </div>
