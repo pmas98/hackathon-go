@@ -41,11 +41,35 @@ export interface Summary {
   mismatched: number;
   missing_in_csv: number;
   missing_in_api: number;
+  categories?: Record<string, number>; // Divergências por campo/categoria
+}
+
+export interface TimingInfo {
+  started_at: number;   // Unix timestamp when processing started
+  completed_at: number; // Unix timestamp when processing completed
+  duration_ms: number;  // Total processing time in milliseconds
+}
+
+export interface PaginationInfo {
+  current_page: number;
+  page_size: number;
+  total_pages: number;
+  total_items: number;
+  has_next_page: boolean;
+  has_previous_page: boolean;
 }
 
 export interface ComparisonResult {
   summary: Summary;
   errors: ErrorDetail[];
+  timing?: TimingInfo;
+  pagination?: PaginationInfo;
+}
+
+export interface ResultsFilters {
+  filter?: string;  // Campo específico (nome, categoria, preco, estoque, fornecedor)
+  type?: string;    // Tipo de erro (mismatch, missing_in_api, missing_in_csv)
+  value?: string;   // Valor específico no campo
 }
 
 export interface CSVValidationError {

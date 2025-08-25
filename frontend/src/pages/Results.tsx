@@ -1,36 +1,45 @@
-import { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { ArrowLeft, Download, BarChart3, Clock, TrendingUp, FileText, Share2 } from 'lucide-react';
 import { Header } from '@/components/Header';
 import { DivergencesTable } from '@/components/DivergencesTable';
 import { DivergenceChart } from '@/components/DivergenceChart';
 import { api, exportData } from '@/lib/api';
 import { formatNumber, formatTime, copyToClipboard } from '@/lib/utils';
-import type { ComparisonResult, PerformanceMetrics } from '@/lib/types';
-
-interface PaginationInfo {
-	current_page: number;
-	page_size: number;
-	total_pages: number;
-	total_items: number;
-	has_next_page: boolean;
-	has_previous_page: boolean;
-}
+import type { ComparisonResult, PerformanceMetrics, PaginationInfo, ResultsFilters } from '@/lib/types';
 
 export default function Results() {
 	const { jobId } = useParams<{ jobId: string }>();
 	const navigate = useNavigate();
+	const [searchParams, setSearchParams] = useSearchParams();
 	
 	const [results, setResults] = useState<ComparisonResult | null>(null);
 	const [isLoading, setIsLoading] = useState(true);
+	const [isFilterLoading, setIsFilterLoading] = useState(false);
 	const [error, setError] = useState<string | null>(null);
 	const [metrics, setMetrics] = useState<PerformanceMetrics>({
 		validationTime: 0,
 		totalProcessTime: 0
 	});
-	const [currentPage, setCurrentPage] = useState(1);
-	const [pageSize, setPageSize] = useState(100);
 	const [pagination, setPagination] = useState<PaginationInfo | null>(null);
+
+	// Get current state from URL search params
+	const currentPage = parseInt(searchParams.get('page') || '1', 10);
+	const pageSize = parseInt(searchParams.get('pageSize') || '100', 10);
+	
+	// Get filters from URL
+	const filters = useMemo(() => {
+		const urlFilters: ResultsFilters = {};
+		const filterParam = searchParams.get('filter');
+		const typeParam = searchParams.get('type');
+		const valueParam = searchParams.get('value');
+		
+		if (filterParam) urlFilters.filter = filterParam;
+		if (typeParam) urlFilters.type = typeParam;
+		if (valueParam) urlFilters.value = valueParam;
+		
+		return urlFilters;
+	}, [searchParams]);
 
 	// Load results with pagination
 	useEffect(() => {
@@ -38,29 +47,41 @@ export default function Results() {
 			if (!jobId) return;
 			
 			try {
-				setIsLoading(true);
+				// Initial loading (no data yet) vs filter loading (has data)
+				if (!results) {
+					setIsLoading(true);
+				} else {
+					setIsFilterLoading(true);
+				}
 				setError(null);
 				
-				const data = await api.getResults(jobId, currentPage, pageSize);
+				const data = await api.getResults(jobId, currentPage, pageSize, filters);
+				console.log('🐛 DEBUG - API Response completa:', data);
+				console.log('🐛 DEBUG - Timing field:', data.timing);
+				console.log('🐛 DEBUG - Filters applied:', filters);
+				console.log('🐛 DEBUG - URL params:', Object.fromEntries(searchParams));
 				setResults(data);
 				setPagination(data.pagination);
 				
-				// Calculate metrics (simulation - in production would come from backend)
-				const start = (window as { uploadStartTime?: number }).uploadStartTime || 0;
-				const validationTime = (window as { validationTime?: number }).validationTime || 0;
-				const totalTime = start ? performance.now() - start : 0;
-				setMetrics({ validationTime, totalProcessTime: totalTime });
+				// Use real timing data from backend
+				if (data.timing) {
+					setMetrics({ 
+						validationTime: 0, // Manter para compatibilidade, mas não usar
+						totalProcessTime: data.timing.duration_ms || 0
+					});
+				}
 				
 			} catch (err) {
 				console.error('Erro ao carregar resultados:', err);
 				setError(err instanceof Error ? err.message : 'Erro desconhecido');
 			} finally {
 				setIsLoading(false);
+				setIsFilterLoading(false);
 			}
 		};
 
 		loadResults();
-	}, [jobId, currentPage, pageSize]);
+	}, [jobId, currentPage, pageSize, filters, searchParams]);
 
 	const handleExport = async (format: 'csv' | 'json') => {
 		if (!jobId) return;
@@ -77,6 +98,53 @@ export default function Results() {
 		}
 	};
 
+	const handleFiltersChange = useCallback((newFilters: ResultsFilters) => {
+		setSearchParams(prev => {
+			const params = new URLSearchParams(prev);
+			
+			// Reset to page 1 when filters change
+			params.set('page', '1');
+			
+			// Update filter parameters
+			if (newFilters.filter) {
+				params.set('filter', newFilters.filter);
+			} else {
+				params.delete('filter');
+			}
+			
+			if (newFilters.type) {
+				params.set('type', newFilters.type);
+			} else {
+				params.delete('type');
+			}
+			
+			if (newFilters.value) {
+				params.set('value', newFilters.value);
+			} else {
+				params.delete('value');
+			}
+			
+			return params;
+		});
+	}, [setSearchParams]);
+
+	const handlePageChange = useCallback((page: number) => {
+		setSearchParams(prev => {
+			const params = new URLSearchParams(prev);
+			params.set('page', page.toString());
+			return params;
+		});
+	}, [setSearchParams]);
+
+	const handlePageSizeChange = useCallback((size: number) => {
+		setSearchParams(prev => {
+			const params = new URLSearchParams(prev);
+			params.set('pageSize', size.toString());
+			params.set('page', '1'); // Reset to page 1 when page size changes
+			return params;
+		});
+	}, [setSearchParams]);
+
 	const handleCopyLink = async () => {
 		const url = window.location.href;
 		const success = await copyToClipboard(url);
@@ -84,15 +152,6 @@ export default function Results() {
 		if (success) {
 			console.log('Link copiado para clipboard');
 		}
-	};
-
-	const handlePageChange = (page: number) => {
-		setCurrentPage(page);
-	};
-
-	const handlePageSizeChange = (size: number) => {
-		setPageSize(size);
-		setCurrentPage(1); // Reset to first page when changing page size
 	};
 
 	if (isLoading) {
@@ -176,7 +235,7 @@ export default function Results() {
 					</div>
 
 					{/* Metrics Cards */}
-					<div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+					<div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
 						<div className="p-6 bg-white/5 backdrop-blur-sm rounded-2xl border border-white/10 shadow-xl hover:shadow-2xl transition-all duration-300">
 							<div className="flex items-center space-x-3">
 								<div className="flex items-center justify-center w-10 h-10 bg-red-500/20 rounded-xl">
@@ -200,20 +259,6 @@ export default function Results() {
 									<p className="text-sm text-purple-200">Produtos Corretos</p>
 									<p className="text-2xl font-bold text-white">
 										{formatNumber(results.summary.matched)}
-									</p>
-								</div>
-							</div>
-						</div>
-						
-						<div className="p-6 bg-white/5 backdrop-blur-sm rounded-2xl border border-white/10 shadow-xl hover:shadow-2xl transition-all duration-300">
-							<div className="flex items-center space-x-3">
-								<div className="flex items-center justify-center w-10 h-10 bg-blue-500/20 rounded-xl">
-									<Clock className="h-5 w-5 text-blue-400" />
-								</div>
-								<div>
-									<p className="text-sm text-purple-200">Tempo de Validação</p>
-									<p className="text-2xl font-bold text-white">
-										{formatTime(metrics.validationTime)}
 									</p>
 								</div>
 							</div>
@@ -268,19 +313,19 @@ export default function Results() {
 									<div className="flex justify-between items-center py-2 border-b border-white/10">
 										<span className="text-purple-200">Divergências de dados:</span>
 										<span className="font-semibold text-orange-400">
-											{formatNumber(results.errors.filter(e => e.type === 'mismatch').length)}
+											{formatNumber(results.summary.mismatched)}
 										</span>
 									</div>
 									<div className="flex justify-between items-center py-2 border-b border-white/10">
 										<span className="text-purple-200">Faltando na API:</span>
 										<span className="font-semibold text-red-400">
-											{formatNumber(results.errors.filter(e => e.type === 'missing_in_api').length)}
+											{formatNumber(results.summary.missing_in_api)}
 										</span>
 									</div>
 									<div className="flex justify-between items-center py-2">
 										<span className="text-purple-200">Faltando no CSV:</span>
 										<span className="font-semibold text-blue-400">
-											{formatNumber(results.errors.filter(e => e.type === 'missing_in_csv').length)}
+											{formatNumber(results.summary.missing_in_csv)}
 										</span>
 									</div>
 								</div>
@@ -302,16 +347,28 @@ export default function Results() {
 					<DivergenceChart data={results} />
 
 					{/* Divergences Table */}
-					<div className="p-8 bg-white/5 backdrop-blur-sm rounded-3xl border border-white/10 shadow-2xl">
+					<div className="p-8 bg-white/5 backdrop-blur-sm rounded-3xl border border-white/10 shadow-2xl relative">
+						{/* Loading overlay for filter updates */}
+						{isFilterLoading && (
+							<div className="absolute inset-0 bg-black/20 backdrop-blur-sm rounded-3xl flex items-center justify-center z-10">
+								<div className="bg-white/10 rounded-2xl px-6 py-4 flex items-center gap-3">
+									<div className="animate-spin w-5 h-5 border-2 border-purple-400 border-t-transparent rounded-full"></div>
+									<span className="text-white font-medium">Filtrando resultados...</span>
+								</div>
+							</div>
+						)}
+						
 						<h3 className="text-xl font-bold text-white mb-6">Divergências Encontradas</h3>
 						<DivergencesTable
-							errors={results.errors}
+							errors={results?.errors || []}
 							currentPage={currentPage}
 							pageSize={pageSize}
 							totalPages={pagination?.total_pages || 1}
 							totalItems={pagination?.total_items || 0}
 							onPageChange={handlePageChange}
 							onPageSizeChange={handlePageSizeChange}
+							onFiltersChange={handleFiltersChange}
+							initialFilters={filters}
 						/>
 					</div>
 				</div>

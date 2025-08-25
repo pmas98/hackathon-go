@@ -35,8 +35,27 @@ export const api = {
 		return response.json();
 	},
 
-	async getResults(jobId: string, page: number = 1, pageSize: number = 100): Promise<ComparisonResult & { pagination?: any }> {
-		const response = await fetch(`${API_URL}/results/${jobId}?page=${page}&page_size=${pageSize}`);
+	async getResults(
+		jobId: string, 
+		page: number = 1, 
+		pageSize: number = 100,
+		filters?: {
+			filter?: string;
+			type?: string;
+			value?: string;
+		}
+	): Promise<ComparisonResult & { pagination?: any }> {
+		const params = new URLSearchParams({
+			page: page.toString(),
+			limit: pageSize.toString(), // O backend usa 'limit', não 'page_size'
+		});
+
+		// Adicionar filtros se fornecidos
+		if (filters?.filter) params.append('filter', filters.filter);
+		if (filters?.type) params.append('type', filters.type);
+		if (filters?.value) params.append('value', filters.value);
+
+		const response = await fetch(`${API_URL}/results/${jobId}?${params.toString()}`);
 
 		if (!response.ok) {
 			const errorData = await response.json().catch(() => ({}));

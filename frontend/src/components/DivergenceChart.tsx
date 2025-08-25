@@ -26,18 +26,19 @@ export function DivergenceChart({ data }: DivergenceChartProps) {
     }
   ];
 
-  // Group errors by category for the second chart
-  const categoryData = data.errors.reduce((acc, error) => {
-    const category = error.fields?.categoria?.csv || 'Sem categoria';
-    acc[category] = (acc[category] || 0) + 1;
-    return acc;
-  }, {} as Record<string, number>);
-
-  const categoryChartData = Object.entries(categoryData).map(([category, count], index) => ({
-    name: category,
-    value: count,
-    color: COLORS[index % COLORS.length]
-  }));
+  // Use the summary.categories data from the backend instead of counting from paginated errors
+  const categoryChartData = Object.entries(data.summary.categories || {})
+    .filter(([, count]) => count > 0) // Only show categories with errors
+    .map(([category, count], index) => ({
+      name: category === 'categoria' ? 'Categoria' : 
+            category === 'nome' ? 'Nome' :
+            category === 'preco' ? 'Preço' :
+            category === 'estoque' ? 'Estoque' :
+            category === 'fornecedor' ? 'Fornecedor' :
+            category,
+      value: count,
+      color: COLORS[index % COLORS.length]
+    }));
 
   return (
     <div className="space-y-8">
