@@ -8,10 +8,10 @@ interface DivergenceChartProps {
 const COLORS = ['#ef4444', '#3b82f6', '#10b981', '#f59e0b', '#8b5cf6'];
 
 export function DivergenceChart({ data }: DivergenceChartProps) {
-  // Use the correct data from the API response
-  const totalErrors = data.summary.mismatched + data.summary.missing_in_api + data.summary.missing_in_csv;
-  const totalProcessed = data.summary.total_csv_items;
+  // Only count products that exist in both CSV and API (matched + mismatched)
+  const totalErrors = data.summary.mismatched;
   const validItems = data.summary.matched;
+  const totalProcessed = validItems + totalErrors; // Only products compared (exist in both)
   
   const chartData = [
     {
@@ -46,7 +46,7 @@ export function DivergenceChart({ data }: DivergenceChartProps) {
       <div className="p-8 bg-white/5 backdrop-blur-sm rounded-3xl border border-white/10 shadow-2xl">
         <h3 className="text-2xl font-bold text-white mb-4">Divergências Gerais</h3>
         <p className="text-purple-200 mb-8 text-lg">
-          Distribuição de produtos com e sem divergências
+          Distribuição de produtos comparados (existem em ambos CSV e API)
         </p>
         <div className="h-96">
           <ResponsiveContainer width="100%" height="100%">
@@ -103,7 +103,7 @@ export function DivergenceChart({ data }: DivergenceChartProps) {
       <div className="p-8 bg-white/5 backdrop-blur-sm rounded-3xl border border-white/10 shadow-2xl">
         <h3 className="text-2xl font-bold text-white mb-4">Divergências por Categoria</h3>
         <p className="text-purple-200 mb-8 text-lg">
-          Distribuição de erros por categoria de produto
+          Distribuição de divergências por campo/categoria
         </p>
         <div className="h-96">
           <ResponsiveContainer width="100%" height="100%">

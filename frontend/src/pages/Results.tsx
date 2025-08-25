@@ -238,9 +238,9 @@ export default function Results() {
 									<BarChart3 className="h-5 w-5 text-red-400" />
 								</div>
 								<div>
-									<p className="text-sm text-purple-200">Total de Divergências</p>
+									<p className="text-sm text-purple-200">Produtos com Divergências</p>
 									<p className="text-2xl font-bold text-white">
-										{formatNumber(results.summary.mismatched + results.summary.missing_in_api + results.summary.missing_in_csv)}
+										{formatNumber(results.summary.mismatched)}
 									</p>
 								</div>
 							</div>
@@ -296,18 +296,30 @@ export default function Results() {
 										<span className="font-semibold text-green-400">{formatNumber(results.summary.matched)}</span>
 									</div>
 									<div className="flex justify-between items-center py-2">
-										<span className="text-orange-400">Total de divergências:</span>
-										<span className="font-semibold text-orange-400">{formatNumber(results.summary.mismatched + results.summary.missing_in_api + results.summary.missing_in_csv)}</span>
+										<span className="text-orange-400">Produtos com divergências:</span>
+										<span className="font-semibold text-orange-400">{formatNumber(results.summary.mismatched)}</span>
 									</div>
 								</div>
 							</div>
 							
-							{/* Right Column - Divergence Breakdown */}
+							{/* Right Column - Complete Analysis */}
 							<div className="space-y-4">
-								<h4 className="text-lg font-semibold text-purple-200 mb-4">Detalhamento das Divergências</h4>
+								<h4 className="text-lg font-semibold text-purple-200 mb-4">Análise Completa</h4>
 								<div className="space-y-3">
 									<div className="flex justify-between items-center py-2 border-b border-white/10">
-										<span className="text-purple-200">Divergências de dados:</span>
+										<span className="text-green-400">Produtos comparados:</span>
+										<span className="font-semibold text-green-400">
+											{formatNumber(results.summary.matched + results.summary.mismatched)}
+										</span>
+									</div>
+									<div className="flex justify-between items-center py-2 border-b border-white/10">
+										<span className="text-orange-400">- Corretos:</span>
+										<span className="font-semibold text-green-400">
+											{formatNumber(results.summary.matched)}
+										</span>
+									</div>
+									<div className="flex justify-between items-center py-2 border-b border-white/10">
+										<span className="text-orange-400">- Com divergências:</span>
 										<span className="font-semibold text-orange-400">
 											{formatNumber(results.summary.mismatched)}
 										</span>
@@ -330,9 +342,9 @@ export default function Results() {
 								<div className="mt-6 p-4 bg-green-500/10 rounded-xl border border-green-500/20">
 									<div className="text-center">
 										<div className="text-2xl font-bold text-green-400">
-											{results.summary.total_csv_items > 0 ? ((results.summary.matched / results.summary.total_csv_items) * 100).toFixed(1) : '0'}%
+											{(results.summary.matched + results.summary.mismatched) > 0 ? ((results.summary.matched / (results.summary.matched + results.summary.mismatched)) * 100).toFixed(1) : '0'}%
 										</div>
-										<div className="text-sm text-green-300">Taxa de Sucesso</div>
+										<div className="text-sm text-green-300">Taxa de Sucesso (Produtos Comparados)</div>
 									</div>
 								</div>
 							</div>
